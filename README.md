@@ -65,11 +65,10 @@ validés dans `data/recording-validations.js`. L’interface publique ne propose
 ni lien externe ni recherche de secours. Aucun enregistrement original n’est
 embarqué dans l’application.
 
-`data/youtube-search-recordings.js` contient un candidat pour chacun des 112
-solos actuellement représentés par une phrase 3★. Chaque candidat correspond
-au premier résultat de la recherche YouTube « musicien + morceau » effectuée
-le 31 juillet 2026. Ces résultats ne deviennent jamais publics sans validation
-manuelle.
+`data/youtube-search-recordings.js` contient un candidat pour chacun des 118
+solos actuellement représentés par une phrase 3★. La base, constituée à partir
+de recherches YouTube « musicien + morceau », a été mise à jour le 8 août 2026.
+Ces résultats ne deviennent jamais publics sans validation manuelle.
 
 ## Mode développeur
 

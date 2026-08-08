@@ -217,6 +217,7 @@ test("l’installation atomique prépare l’interface et le corpus complet", as
     "/data/default-phrase-settings-base.js",
     "/data/default-ratings-base.js",
     "/data/imported-data-2026-08-01.js",
+    "/data/imported-data-2026-08-08.js",
   ]) {
     assert.equal(
       [...shell.keys()].some((url) => url.endsWith(path)),

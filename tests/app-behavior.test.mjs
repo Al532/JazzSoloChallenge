@@ -1029,7 +1029,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         () =>
           youtube.element("#recording-workshop-panel").hidden === false &&
           youtube.element("#recording-workshop-solo").options.length ===
-            112,
+            118,
         "ouverture de l’atelier",
       );
       await youtube.change(

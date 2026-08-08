@@ -381,6 +381,30 @@ export const RECORDING_VALIDATIONS = Object.freeze({
     ],
     "updatedAt": "2026-08-01T16:16:39.734Z"
   },
+  "wjazzd-v2.1-346": {
+    "status": "verified",
+    "youtubeId": "VFNUFh5uNc8",
+    "offset": 39.7429,
+    "updatedAt": "2026-08-06T10:25:41.561Z"
+  },
+  "wjazzd-v2.1-347": {
+    "status": "verified",
+    "youtubeId": "VFNUFh5uNc8",
+    "offset": 172.498,
+    "updatedAt": "2026-08-06T10:20:12.330Z"
+  },
+  "wjazzd-v2.1-348": {
+    "status": "verified",
+    "youtubeId": "nl_hBPrYclY",
+    "offset": 58,
+    "updatedAt": "2026-08-06T10:16:17.055Z"
+  },
+  "wjazzd-v2.1-394": {
+    "status": "verified",
+    "youtubeId": "uxvnQC2FiSs",
+    "offset": 43,
+    "updatedAt": "2026-08-02T22:23:41.020Z"
+  },
   "wjazzd-v2.1-41": {
     "status": "verified",
     "youtubeId": "Zj-__rzM9rY",
@@ -524,8 +548,8 @@ export const RECORDING_VALIDATIONS = Object.freeze({
   "wjazzd-v2.1-73": {
     "status": "verified",
     "youtubeId": "PABzN7U8OBY",
-    "offset": 48.4669,
-    "updatedAt": "2026-07-31T08:28:09.913Z"
+    "offset": 49.4669,
+    "updatedAt": "2026-08-04T11:33:38.373Z"
   },
   "wjazzd-v2.1-74": {
     "status": "verified",

@@ -1,7 +1,13 @@
-// First YouTube result for each 3-star solo search, generated 2026-07-31.
-// Query format: performer + title. Offsets reuse the previous calibrated
-// candidate when possible and otherwise provide a starting point for review.
+// One YouTube review candidate for every 3-star solo, updated 2026-08-08.
+// Queries use performer + title. Offsets reuse calibrated values when
+// possible and otherwise provide a starting point for manual review.
 export const YOUTUBE_SEARCH_RECORDINGS = Object.freeze({
+  "wjazzd-v2.1-1": [
+    [
+      "Mt4Ezw0W_TM",
+      49.0728
+    ]
+  ],
   "wjazzd-v2.1-7": [
     [
       "PbcQr149k9o",
@@ -230,6 +236,12 @@ export const YOUTUBE_SEARCH_RECORDINGS = Object.freeze({
       34.7548
     ]
   ],
+  "wjazzd-v2.1-118": [
+    [
+      "-N5hijdj7A4",
+      118.5309
+    ]
+  ],
   "wjazzd-v2.1-121": [
     [
       "hkyJQcmVtZQ",
@@ -276,6 +288,12 @@ export const YOUTUBE_SEARCH_RECORDINGS = Object.freeze({
     [
       "0PDjh9zgULM",
       90.0592
+    ]
+  ],
+  "wjazzd-v2.1-143": [
+    [
+      "LqoK_0LiSrM",
+      150.8693
     ]
   ],
   "wjazzd-v2.1-160": [
@@ -336,6 +354,12 @@ export const YOUTUBE_SEARCH_RECORDINGS = Object.freeze({
     [
       "I_DdVLP_7X8",
       0
+    ]
+  ],
+  "wjazzd-v2.1-183": [
+    [
+      "hP6QCMhOxH0",
+      66.5044
     ]
   ],
   "wjazzd-v2.1-189": [
@@ -620,6 +644,12 @@ export const YOUTUBE_SEARCH_RECORDINGS = Object.freeze({
       61.2511
     ]
   ],
+  "wjazzd-v2.1-376": [
+    [
+      "n1WWs0KSY8U",
+      129.5385
+    ]
+  ],
   "wjazzd-v2.1-387": [
     [
       "3MkUvZUTFUc",
@@ -666,6 +696,12 @@ export const YOUTUBE_SEARCH_RECORDINGS = Object.freeze({
     [
       "ju97lzYQCCA",
       82.7837
+    ]
+  ],
+  "wjazzd-v2.1-444": [
+    [
+      "SgxKyWw_G04",
+      45.7876
     ]
   ],
   "wjazzd-v2.1-454": [

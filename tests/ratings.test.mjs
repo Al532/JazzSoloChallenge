@@ -15,8 +15,8 @@ import {
   structuralPhraseExclusion,
 } from "../src/ratings.js";
 
-test("les 763 notes exportées sont intégrées en dur", () => {
-  assert.equal(Object.keys(DEFAULT_PHRASE_RATINGS).length, 763);
+test("les 801 notes exportées sont intégrées en dur", () => {
+  assert.equal(Object.keys(DEFAULT_PHRASE_RATINGS).length, 801);
   assert.deepEqual(
     Object.values(DEFAULT_PHRASE_RATINGS).reduce(
       (counts, { rating }) => ({
@@ -25,7 +25,7 @@ test("les 763 notes exportées sont intégrées en dur", () => {
       }),
       { 1: 0, 2: 0, 3: 0 },
     ),
-    { 1: 333, 2: 222, 3: 208 },
+    { 1: 345, 2: 238, 3: 218 },
   );
 });
 
@@ -35,11 +35,11 @@ test("le protocole couvre les notes et les exclusions structurelles", () => {
     fixedScopes: DEFAULT_RATING_SCOPES,
   });
   assert.equal(summary.total, 11_082);
-  assert.equal(summary.explicit, 763);
+  assert.equal(summary.explicit, 801);
   assert.equal(summary.structuralExcluded, 3_416);
-  assert.equal(summary.covered, 4_185);
-  assert.equal(summary.remaining, 6_897);
-  assert.deepEqual(summary.distribution, { 1: 3_755, 2: 222, 3: 208 });
+  assert.equal(summary.covered, 4_223);
+  assert.equal(summary.remaining, 6_859);
+  assert.deepEqual(summary.distribution, { 1: 3_767, 2: 238, 3: 218 });
   assert.deepEqual(
     summary.structuralRules.map(({ scopeId, sampleSize }) => ({
       scopeId,

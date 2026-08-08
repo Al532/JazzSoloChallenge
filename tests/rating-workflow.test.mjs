@@ -21,13 +21,13 @@ test("le workflow expose le protocole complet sans données détaillées", () =>
   });
   const summary = workflow.protocol();
   assert.equal(summary.total, 11_082);
-  assert.equal(summary.explicit, 763);
-  assert.equal(summary.covered, 4_185);
+  assert.equal(summary.explicit, 801);
+  assert.equal(summary.covered, 4_223);
   assert.equal(summary.structuralExcluded, 3_416);
   assert.deepEqual(summary.distribution, {
-    1: 3_755,
-    2: 222,
-    3: 208,
+    1: 3_767,
+    2: 238,
+    3: 218,
   });
 });
 

@@ -69,7 +69,7 @@ test("les sources directes et décisions intégrées non validées restent invis
   );
   assert.deepEqual(distribution, {
     "wrong-version": 36,
-    verified: 56,
+    verified: 60,
     unavailable: 2,
   });
   assert.deepEqual(
@@ -258,7 +258,7 @@ test("la base YouTube couvre exactement les solos avec phrases 3 étoiles", () =
       .map(({ id }) => id),
   );
   const entries = Object.entries(YOUTUBE_SEARCH_RECORDINGS);
-  assert.equal(entries.length, 112);
+  assert.equal(entries.length, 118);
   assert.deepEqual(
     new Set(entries.map(([soloId]) => soloId)),
     reviewedSoloIds,
