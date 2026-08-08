@@ -323,13 +323,13 @@ test("l’ancienne télémétrie reste absente et les samples restent disponible
   assert.doesNotMatch(document.body.textContent, /\bscore\b|\bpoints\b/i);
   assert.equal(DEFAULT_MELODY_SOUND, "synthetic");
 
-  for (const [instrument, expectedCount] of [
-    ["clarinet", 43],
-    ["piano", 61],
+  for (const [instrument, extension, expectedCount] of [
+    ["clarinet", "mp3", 43],
+    ["piano", "ogg", 61],
   ]) {
     const directory = new URL(`../audio/${instrument}/`, import.meta.url);
     const samples = (await readdir(directory))
-      .filter((filename) => filename.endsWith(".mp3"))
+      .filter((filename) => filename.endsWith(`.${extension}`))
       .sort();
     assert.equal(samples.length, expectedCount, instrument);
     for (const filename of samples) {

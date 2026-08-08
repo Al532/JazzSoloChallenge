@@ -187,3 +187,9 @@ le renommage du dépôt.
 ## Licence
 
 Code sous licence MIT. La WJazzD est distribuée sous licence ODbL.
+
+Les échantillons de piano sont dérivés de
+[Salamander Grand Piano v3](https://github.com/sfzinstruments/SalamanderGrandPiano),
+créé par Alexander Holm et distribué sous
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). La couche de
+vélocité 5 a été transposée, ramenée à 3 secondes et convertie en OGG.

@@ -215,12 +215,14 @@ test("le runtime expose et valide les trois sons de mélodie", () => {
     minMidi: 50,
     maxMidi: 92,
     headSeconds: 0.025,
+    fileExtension: "mp3",
   });
   assert.deepEqual(MELODY_SAMPLE_INSTRUMENTS.piano, {
     labelKey: "instrument.piano",
     minMidi: 36,
     maxMidi: 96,
     headSeconds: 0,
+    fileExtension: "ogg",
   });
   assert.deepEqual(
     keyboardMidiNotes({ startMidi: 60, endMidi: 63 }),
@@ -412,11 +414,19 @@ test("le piano reprend la release exponentielle adaptative de SharpEleven", asyn
   );
 
   const context = new FakeAudioContext({ decodedDuration: 2 });
+  const fetched = [];
   const { runtime } = makeRuntime({
     context,
     initialMelodySound: "piano",
+    fetchImpl: async (url) => {
+      fetched.push(url.toString());
+      return okResponse();
+    },
   });
   await runtime.loadMelodySample(60);
+  assert.deepEqual(fetched, [
+    "https://example.test/app/audio/piano/60.ogg",
+  ]);
   const playbackEnd = runtime.playTone(60, 0.2, 0.48);
 
   const source = context.sources[0];

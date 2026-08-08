@@ -4,12 +4,14 @@ export const MELODY_SAMPLE_INSTRUMENTS = Object.freeze({
     minMidi: 50,
     maxMidi: 92,
     headSeconds: 0.025,
+    fileExtension: "mp3",
   }),
   piano: Object.freeze({
     labelKey: "instrument.piano",
     minMidi: 36,
     maxMidi: 96,
     headSeconds: 0,
+    fileExtension: "ogg",
   }),
 });
 
@@ -197,7 +199,8 @@ export function createAudioRuntime({
       return Promise.resolve(melodySampleBuffers.get(sampleKey));
     }
     if (!melodySampleLoads.has(sampleKey)) {
-      const path = `audio/${sound}/${sampleMidi}.mp3`;
+      const path =
+        `audio/${sound}/${sampleMidi}.${instrument.fileExtension}`;
       const loading = fetchImpl(assetUrl(path))
         .then((response) => {
           if (!response.ok) {
