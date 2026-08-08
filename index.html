@@ -27,8 +27,8 @@
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=77" />
-    <script type="module" src="./src/app.js?v=77"></script>
+    <link rel="stylesheet" href="./styles.css?v=78" />
+    <script type="module" src="./src/app.js?v=78"></script>
   </head>
   <body>
     <div
@@ -193,7 +193,18 @@
               <input id="developer-mode" type="checkbox" />
               <span data-i18n="developer.mode">Developer mode</span>
             </label>
-
+            <label
+              class="setting-field developer-sound-setting"
+              data-developer-only
+              hidden
+            >
+              <span data-i18n="developer.melodySound">Melody sound</span>
+              <select id="melody-sound">
+                <option value="synthetic" data-i18n="sound.synthetic">Synthetic</option>
+                <option value="clarinet" data-i18n="sound.clarinet">Clarinet</option>
+                <option value="piano" data-i18n="sound.piano">Piano</option>
+              </select>
+            </label>
           </div>
         </details>
       </section>

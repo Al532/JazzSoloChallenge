@@ -7,12 +7,18 @@ import {
   MASTER_GAIN,
   MASTER_LIMITER_THRESHOLD_DB,
   MELODY_EMPHASIS_GAIN,
+  MELODY_GAIN,
   MELODY_SAMPLE_INSTRUMENTS,
   MIDI_INPUT_ATTACK_SECONDS,
   MIDI_INPUT_RELEASE_SECONDS,
+  PIANO_RELEASE_SETTLE_MULTIPLIER,
+  PIANO_RELEASE_TIME_CONSTANT_HIGH_SECONDS,
+  PIANO_RELEASE_TIME_CONSTANT_LOW_SECONDS,
   SYNTHETIC_MELODY_GAIN,
   createAudioRuntime,
   keyboardMidiNotes,
+  normalizeMelodySound,
+  pianoReleaseProfile,
 } from "../src/audio-runtime.js";
 
 class FakeAudioParam {
@@ -27,6 +33,10 @@ class FakeAudioParam {
 
   exponentialRampToValueAtTime(value, time) {
     this.events.push(["exponential", value, time]);
+  }
+
+  setTargetAtTime(value, time, timeConstant) {
+    this.events.push(["target", value, time, timeConstant]);
   }
 }
 
@@ -195,7 +205,7 @@ function makeRuntime({
   };
 }
 
-test("le runtime conserve les deux instruments échantillonnés masqués", () => {
+test("le runtime expose et valide les trois sons de mélodie", () => {
   assert.deepEqual(Object.keys(MELODY_SAMPLE_INSTRUMENTS), [
     "clarinet",
     "piano",
@@ -216,6 +226,10 @@ test("le runtime conserve les deux instruments échantillonnés masqués", () =>
     keyboardMidiNotes({ startMidi: 60, endMidi: 63 }),
     [60, 61, 62, 63],
   );
+  assert.equal(normalizeMelodySound("synthetic"), "synthetic");
+  assert.equal(normalizeMelodySound("clarinet"), "clarinet");
+  assert.equal(normalizeMelodySound("piano"), "piano");
+  assert.equal(normalizeMelodySound("unknown"), DEFAULT_MELODY_SOUND);
 });
 
 test("le son synthétique conserve oscillateurs, enveloppes et fallback", () => {
@@ -319,6 +333,53 @@ test("les samples de mélodie sont dédupliqués, mis en cache et transposés", 
     ["set", MELODY_EMPHASIS_GAIN, 10.645],
     ["exponential", 0.0001, 10.68],
   ]);
+});
+
+test("le piano reprend la release exponentielle adaptative de SharpEleven", async () => {
+  const lowProfile = pianoReleaseProfile(45, 0, 1);
+  const highProfile = pianoReleaseProfile(89, 0, 1);
+  assert.equal(lowProfile.timeConstant, PIANO_RELEASE_TIME_CONSTANT_LOW_SECONDS);
+  assert.equal(highProfile.timeConstant, PIANO_RELEASE_TIME_CONSTANT_HIGH_SECONDS);
+  assert.equal(Number(lowProfile.fadeBefore.toFixed(3)), 0.18);
+  assert.equal(Number(highProfile.fadeBefore.toFixed(3)), 0.135);
+  assert.equal(
+    pianoReleaseProfile(45, 0, 0).fadeBefore,
+    PIANO_RELEASE_TIME_CONSTANT_LOW_SECONDS * 0.9,
+  );
+
+  const context = new FakeAudioContext({ decodedDuration: 2 });
+  const { runtime } = makeRuntime({
+    context,
+    initialMelodySound: "piano",
+  });
+  await runtime.loadMelodySample(60);
+  const playbackEnd = runtime.playTone(60, 0.2, 0.48);
+
+  const source = context.sources[0];
+  const gainEvents = context.gains[0].gain.events;
+  const profile = pianoReleaseProfile(60, MELODY_GAIN, 0.48);
+  const noteEnd = 10.68;
+  const release = noteEnd - profile.fadeBefore;
+  const releaseEnd = Math.max(
+    noteEnd,
+    release + profile.timeConstant * PIANO_RELEASE_SETTLE_MULTIPLIER,
+  );
+
+  assert.deepEqual(source.startCalls, [[10.2, 0]]);
+  assert.ok(releaseEnd > noteEnd);
+  assert.ok(Math.abs(playbackEnd - (releaseEnd - 10)) < 1e-12);
+  assert.ok(Math.abs(source.stopCalls[0][0] - releaseEnd) < 1e-12);
+  assert.deepEqual(gainEvents.slice(0, 2), [
+    ["set", 0.0001, 10.2],
+    ["exponential", MELODY_GAIN, 10.206],
+  ]);
+  assert.equal(gainEvents[2][0], "set");
+  assert.ok(Math.abs(gainEvents[2][2] - release) < 1e-12);
+  assert.equal(gainEvents[3][0], "target");
+  assert.equal(gainEvents[3][1], 0.0001);
+  assert.ok(Math.abs(gainEvents[3][2] - release) < 1e-12);
+  assert.equal(gainEvents[3][3], profile.timeConstant);
+  assert.deepEqual(gainEvents[4], ["set", 0, releaseEnd]);
 });
 
 test("un chargement échoué est retenté et garde le message traduit", async () => {

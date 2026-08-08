@@ -140,6 +140,9 @@ function createAudioHarness(clock) {
       linearRampToValueAtTime(value) {
         this.value = value;
       },
+      setTargetAtTime(value) {
+        this.value = value;
+      },
       setValueAtTime(value) {
         this.value = value;
       },

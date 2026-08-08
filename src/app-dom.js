@@ -113,6 +113,7 @@ export function queryAppElements(documentObject) {
     unavailableRecordingWorkshop: documentObject.querySelector(
       "#unavailable-recording-workshop",
     ),
+    melodySound: documentObject.querySelector("#melody-sound"),
     developerMode: documentObject.querySelector("#developer-mode"),
     developerOnly: documentObject.querySelectorAll("[data-developer-only]"),
     ratingWorkspace: documentObject.querySelector("#rating-workspace"),
@@ -276,6 +277,9 @@ export function bindAppEvents(elements, actions, documentObject) {
   listen(elements.finishHome, "click", () => actions.leaveGameMode("home"));
   listen(elements.developerMode, "change", () =>
     actions.setDeveloperMode(elements.developerMode.checked),
+  );
+  listen(elements.melodySound, "change", () =>
+    actions.syncMelodySound(elements.melodySound.value),
   );
   listen(elements.nextExercise, "click", () => actions.goToNextExercise());
   listen(elements.replay, "click", () => actions.togglePlayback());

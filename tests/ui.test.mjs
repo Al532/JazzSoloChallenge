@@ -117,6 +117,20 @@ test("le contrat HTML expose uniquement les outils développeur actuels", () => 
     ],
   );
   assert.equal(elements.developerMode.type, "checkbox");
+  const soundSetting = elements.melodySound.closest(
+    ".developer-sound-setting",
+  );
+  assert.ok(soundSetting);
+  assert.equal(soundSetting.hidden, true);
+  assert.equal(soundSetting.hasAttribute("data-developer-only"), true);
+  assert.equal(
+    soundSetting.parentElement,
+    document.querySelector(".developer-access-panel"),
+  );
+  assert.deepEqual(
+    [...elements.melodySound.options].map(({ value }) => value),
+    ["synthetic", "clarinet", "piano"],
+  );
   assert.doesNotMatch(
     styles,
     /\.lick-exercise-mode\.game-mode #next-exercise:not\(\[hidden\]\)/,
@@ -293,7 +307,7 @@ test("le format public reste un défi 3 × 3", () => {
   assert.equal(document.querySelector("#completion-modal"), null);
 });
 
-test("l’ancienne télémétrie et le sélecteur de son restent absents", async () => {
+test("l’ancienne télémétrie reste absente et les samples restent disponibles", async () => {
   for (const selector of [
     "#stat-exercises",
     "#stat-notes",
@@ -303,7 +317,6 @@ test("l’ancienne télémétrie et le sélecteur de son restent absents", async
     "#export-json",
     "#reset-stats",
     "#import-json",
-    "#melody-sound",
   ]) {
     assert.equal(document.querySelector(selector), null, selector);
   }

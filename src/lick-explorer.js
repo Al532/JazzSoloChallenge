@@ -518,13 +518,18 @@ export function createLickExplorer({
 
   function schedule(sequence, version) {
     if (version !== playbackVersion) return false;
+    let melodyPlaybackEnd = 0;
     sequence.notes.forEach((midi, noteIndex) => {
       const timing = sequence.timings[noteIndex];
-      audioRuntime.playTone(
+      const toneEnd = audioRuntime.playTone(
         midi,
         timing.offset,
         timing.duration,
         noteIndex === 0,
+      );
+      melodyPlaybackEnd = Math.max(
+        melodyPlaybackEnd,
+        toneEnd ?? timing.offset + timing.duration,
       );
     });
     for (const chick of sequence.chicks ?? []) {
@@ -538,9 +543,7 @@ export function createLickExplorer({
       );
     }
     const playbackEnds = [
-      ...sequence.timings.map(
-        ({ offset, duration }) => offset + duration,
-      ),
+      melodyPlaybackEnd,
       ...(sequence.bassHits ?? []).map(
         ({ offset, duration }) => offset + duration,
       ),

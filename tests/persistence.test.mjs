@@ -117,7 +117,7 @@ test("removeStoredValue supprime une valeur existante", () => {
   assert.equal(readJson("removable", false, storage), false);
 });
 
-test("les réglages globaux migrent parkerSpeed et imposent le son synthétique", () => {
+test("les réglages globaux migrent parkerSpeed et valident le son", () => {
   assert.deepEqual(
     normalizeGlobalSettings({
       parkerSpeed: 75,
@@ -129,7 +129,7 @@ test("les réglages globaux migrent parkerSpeed et imposent le son synthétique"
     {
       realSpeed: 75,
       developerMode: true,
-      melodySound: DEFAULT_MELODY_SOUND,
+      melodySound: "piano",
     },
   );
 
@@ -141,9 +141,13 @@ test("les réglages globaux migrent parkerSpeed et imposent le son synthétique"
   assert.equal(normalizeGlobalSettings({ realSpeed: 5 }).realSpeed, 25);
   assert.equal(normalizeGlobalSettings({ realSpeed: 150 }).realSpeed, 100);
   assert.equal(normalizeGlobalSettings().realSpeed, 100);
+  assert.equal(
+    normalizeGlobalSettings({ melodySound: "unknown" }).melodySound,
+    DEFAULT_MELODY_SOUND,
+  );
 });
 
-test("la sérialisation omet les anciens réglages et le son implicite", () => {
+test("la sérialisation conserve le son choisi et omet le son implicite", () => {
   assert.deepEqual(
     serializedGlobalSettings({
       parkerSpeed: 80,
@@ -156,8 +160,14 @@ test("la sérialisation omet les anciens réglages et le son implicite", () => {
       realSpeed: 80,
       realSpeedDefaultRevision: REAL_SPEED_DEFAULT_REVISION,
       developerMode: true,
+      melodySound: "clarinet",
     },
   );
+  assert.deepEqual(serializedGlobalSettings(), {
+    realSpeed: 100,
+    realSpeedDefaultRevision: REAL_SPEED_DEFAULT_REVISION,
+    developerMode: false,
+  });
 });
 
 test("le chargement migratoire applique une fois la vitesse par défaut", () => {
@@ -172,12 +182,13 @@ test("le chargement migratoire applique une fois la vitesse par défaut", () => 
   assert.deepEqual(loadAndMigrateGlobalSettings(storage), {
     realSpeed: 100,
     developerMode: false,
-    melodySound: DEFAULT_MELODY_SOUND,
+    melodySound: "piano",
   });
   assert.deepEqual(readJson(SETTINGS_KEY, null, storage), {
     realSpeed: 100,
     realSpeedDefaultRevision: REAL_SPEED_DEFAULT_REVISION,
     developerMode: false,
+    melodySound: "piano",
   });
 
   assert.equal(
@@ -185,6 +196,7 @@ test("le chargement migratoire applique une fois la vitesse par défaut", () => 
       {
         realSpeed: 30,
         developerMode: true,
+        melodySound: "clarinet",
       },
       storage,
     ),
@@ -193,12 +205,12 @@ test("le chargement migratoire applique une fois la vitesse par défaut", () => 
   assert.deepEqual(loadGlobalSettings(storage), {
     realSpeed: 30,
     developerMode: true,
-    melodySound: DEFAULT_MELODY_SOUND,
+    melodySound: "clarinet",
   });
   assert.deepEqual(loadAndMigrateGlobalSettings(storage), {
     realSpeed: 30,
     developerMode: true,
-    melodySound: DEFAULT_MELODY_SOUND,
+    melodySound: "clarinet",
   });
 });
 

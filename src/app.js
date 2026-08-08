@@ -8,8 +8,10 @@ import {
   pitchClass,
 } from "./engine.js";
 import {
+  DEFAULT_MELODY_SOUND,
   createAudioRuntime,
   keyboardMidiNotes,
+  normalizeMelodySound,
 } from "./audio-runtime.js";
 import { createOriginalPlayer } from "./original-player.js";
 import { mergeRecordingValidations } from "./recording.js";
@@ -59,7 +61,6 @@ import { createAppShell } from "./app-shell.js";
 import {
   createExerciseState,
   enterExerciseMidi,
-  exercisePlaybackDurationMs,
   originalExerciseNotes,
   resetExerciseProgress as resetExerciseState,
 } from "./exercise.js";
@@ -245,8 +246,9 @@ function loadSettings() {
   currentMode = "challenge";
   developerMode = settings.developerMode;
   realSpeedPercent = settings.realSpeed;
-  melodySound = settings.melodySound;
-  audioRuntime.setMelodySound(melodySound);
+  melodySound = normalizeMelodySound(settings.melodySound);
+  elements.melodySound.value = melodySound;
+  syncEffectiveMelodySound();
   elements.developerMode.checked = developerMode;
   renderDeveloperMode();
   renderSpeedSetting();
@@ -256,6 +258,7 @@ function saveSettings() {
   saveGlobalSettings({
     realSpeed: realSpeedPercent,
     developerMode,
+    melodySound,
   });
 }
 
@@ -271,6 +274,12 @@ function renderDeveloperMode() {
   elements.developerMode.checked = developerMode;
   renderRatingControls();
   renderPhraseControls();
+}
+
+function syncEffectiveMelodySound() {
+  return audioRuntime.setMelodySound(
+    developerMode ? melodySound : DEFAULT_MELODY_SOUND,
+  );
 }
 
 async function ensureRecordingWorkshop() {
@@ -462,6 +471,7 @@ async function startLickExercise() {
 
 async function setDeveloperMode(enabled) {
   developerMode = Boolean(enabled);
+  syncEffectiveMelodySound();
   elements.developerMode.closest("details")?.removeAttribute("open");
   if (!developerMode && !elements.lickExplorerPanel.hidden) {
     lickExplorer?.close();
@@ -490,6 +500,17 @@ function renderSpeedSetting() {
 function syncGameSpeed(value) {
   realSpeedPercent = clamp(Number(value), 25, 100);
   renderSpeedSetting();
+  saveSettings();
+}
+
+function syncMelodySound(value) {
+  if (!developerMode) {
+    elements.melodySound.value = melodySound;
+    return;
+  }
+  melodySound = normalizeMelodySound(value);
+  elements.melodySound.value = melodySound;
+  syncEffectiveMelodySound();
   saveSettings();
 }
 
@@ -1118,11 +1139,21 @@ function scheduleSequenceAudio(
   { flashFirstNote = false } = {},
 ) {
   const timeScale = 100 / speedPercent;
+  let playbackEnd = 0;
   sequence.notes.forEach((midi, index) => {
     const timing = sequence.timings[index];
     const startSeconds = timing.offset * timeScale;
     const durationSeconds = timing.duration * timeScale;
-    playTone(midi, startSeconds, durationSeconds, index === 0);
+    const toneEnd = playTone(
+      midi,
+      startSeconds,
+      durationSeconds,
+      index === 0,
+    );
+    playbackEnd = Math.max(
+      playbackEnd,
+      toneEnd ?? startSeconds + durationSeconds,
+    );
     if (flashFirstNote && index === 0) {
       flashPlayedKey(
         midi,
@@ -1132,15 +1163,21 @@ function scheduleSequenceAudio(
     }
   });
   for (const chick of sequence.chicks ?? []) {
-    playChick(chick.offset * timeScale);
+    const offset = chick.offset * timeScale;
+    playChick(offset);
+    playbackEnd = Math.max(playbackEnd, offset + 0.06);
   }
   for (const bassHit of sequence.bassHits ?? []) {
+    const offset = bassHit.offset * timeScale;
+    const duration = bassHit.duration * timeScale;
     playBass(
       bassHit.midi,
-      bassHit.offset * timeScale,
-      bassHit.duration * timeScale,
+      offset,
+      duration,
     );
+    playbackEnd = Math.max(playbackEnd, offset + duration);
   }
+  return playbackEnd;
 }
 
 function previewPhraseEditorEvents(events) {
@@ -1156,14 +1193,8 @@ function previewPhraseEditorEvents(events) {
       duration: event[2],
     })),
   };
-  scheduleSequenceAudio(sequence, realSpeedPercent);
-  const lastTiming = sequence.timings.at(-1);
-  return Math.ceil(
-    (lastTiming.offset + lastTiming.duration) *
-      (100 / realSpeedPercent) *
-      1000 +
-      80,
-  );
+  const playbackEnd = scheduleSequenceAudio(sequence, realSpeedPercent);
+  return Math.ceil(playbackEnd * 1000 + 80);
 }
 
 function playSequence({ guardInputBurst = false } = {}) {
@@ -1182,10 +1213,10 @@ function playSequence({ guardInputBurst = false } = {}) {
   elements.feedback.className = "feedback";
   elements.feedback.textContent = t("audio.listenCarefully");
   exercise.speedPercent = realSpeedPercent;
-  scheduleSequenceAudio(exercise, exercise.speedPercent, {
+  const playbackEnd = scheduleSequenceAudio(exercise, exercise.speedPercent, {
     flashFirstNote: true,
   });
-  const playbackDuration = exercisePlaybackDurationMs(exercise);
+  const playbackDuration = Math.ceil(playbackEnd * 1000);
 
   playbackTimer = window.setTimeout(() => {
     playbackTimer = null;
@@ -2498,6 +2529,7 @@ bindAppEvents(
     startMode,
     startNewChallenge,
     syncGameSpeed,
+    syncMelodySound,
     toggleCurrentFavorite,
     toggleGameMode,
     toggleOriginalPlayback: originalPlayer.toggle,
@@ -2564,6 +2596,8 @@ if (
         }
       : null,
     lickExplorer: lickExplorer?.snapshot() ?? null,
+    melodySound,
+    effectiveMelodySound: audioRuntime.getMelodySound(),
     phraseEditorOpen: phraseEditor.isOpen,
   });
 }

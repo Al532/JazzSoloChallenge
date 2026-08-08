@@ -29,7 +29,8 @@ test("queryAppElements résout le contrat DOM de l’application", () => {
   assert.equal(elements.openLickExplorer.id, "open-lick-explorer");
   assert.equal(elements.startLickExercise.id, "start-lick-exercise");
   assert.equal(elements.lickExplorerPanel.id, "lick-explorer-panel");
-  assert.equal(elements.developerOnly.length, 1);
+  assert.equal(elements.melodySound.id, "melody-sound");
+  assert.equal(elements.developerOnly.length, 2);
   assert.equal(elements.quickRatingButtons.length, 3);
   assert.equal(elements.openPhraseEditor.id, "open-phrase-editor");
   assert.equal(elements.phraseEditorModal.id, "phrase-editor-modal");
@@ -97,6 +98,9 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
     syncGameSpeed(value) {
       calls.push(["syncGameSpeed", value]);
     },
+    syncMelodySound(value) {
+      calls.push(["syncMelodySound", value]);
+    },
     togglePlayback() {
       calls.push(["togglePlayback"]);
     },
@@ -105,6 +109,8 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
 
   elements.gameSpeed.value = "75";
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
+  elements.melodySound.value = "piano";
+  elements.melodySound.dispatchEvent(new dom.window.Event("change"));
   elements.midiConnect.click();
   elements.startRating.click();
   elements.startLickExercise.click();
@@ -153,6 +159,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
 
   assert.deepEqual(calls, [
     ["syncGameSpeed", "75"],
+    ["syncMelodySound", "piano"],
     ["connectMidiInput"],
     ["startMode", "rating"],
     ["startLickExercise"],
@@ -175,7 +182,7 @@ test("bindAppEvents transmet les valeurs, raccourcis et se nettoie", () => {
   unbind();
   elements.startRating.click();
   elements.gameSpeed.dispatchEvent(new dom.window.Event("input"));
-  assert.equal(calls.length, 17);
+  assert.equal(calls.length, 18);
 
   dom.window.close();
 });

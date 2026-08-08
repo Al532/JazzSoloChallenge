@@ -1,3 +1,8 @@
+import {
+  DEFAULT_MELODY_SOUND,
+  normalizeMelodySound,
+} from "./audio-runtime.js";
+
 // Espace de noms historique conservé pour préserver les données locales
 // existantes après le changement d’adresse de l’application.
 export const SETTINGS_KEY = "dictee-musicale.settings.v1";
@@ -27,7 +32,7 @@ export const DEFAULT_REAL_SPEED_PERCENT = 100;
 export const MIN_REAL_SPEED_PERCENT = 25;
 export const MAX_REAL_SPEED_PERCENT = 100;
 export const REAL_SPEED_DEFAULT_REVISION = 1;
-export const DEFAULT_MELODY_SOUND = "synthetic";
+export { DEFAULT_MELODY_SOUND };
 
 function storageOrDefault(storage) {
   return storage ?? globalThis.localStorage;
@@ -81,17 +86,21 @@ export function normalizeGlobalSettings(value = {}) {
       MAX_REAL_SPEED_PERCENT,
     ),
     developerMode: Boolean(settings.developerMode),
-    melodySound: DEFAULT_MELODY_SOUND,
+    melodySound: normalizeMelodySound(settings.melodySound),
   };
 }
 
 export function serializedGlobalSettings(value = {}) {
   const settings = normalizeGlobalSettings(value);
-  return {
+  const serialized = {
     realSpeed: settings.realSpeed,
     realSpeedDefaultRevision: REAL_SPEED_DEFAULT_REVISION,
     developerMode: settings.developerMode,
   };
+  if (settings.melodySound !== DEFAULT_MELODY_SOUND) {
+    serialized.melodySound = settings.melodySound;
+  }
+  return serialized;
 }
 
 export function loadGlobalSettings(storage) {

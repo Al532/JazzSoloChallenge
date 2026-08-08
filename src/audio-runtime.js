@@ -24,12 +24,61 @@ export const MIDI_INPUT_ATTACK_SECONDS = 0.003;
 export const MIDI_INPUT_RELEASE_SECONDS = 0.025;
 export const MELODY_ATTACK_SECONDS = 0.006;
 export const MELODY_RELEASE_SECONDS = 0.035;
+export const PIANO_RELEASE_TIME_CONSTANT_LOW_SECONDS = 0.2;
+export const PIANO_RELEASE_TIME_CONSTANT_HIGH_SECONDS = 0.15;
+export const PIANO_RELEASE_MIDI_LOW = 45;
+export const PIANO_RELEASE_MIDI_HIGH = 89;
+export const PIANO_RELEASE_VOLUME_REFERENCE = 0.42;
+export const PIANO_RELEASE_VOLUME_BOOST_SECONDS = 0.006;
+export const PIANO_RELEASE_SETTLE_MULTIPLIER = 3.5;
 export const BASS_GAIN = 0.22;
 export const BASS_ATTACK_SECONDS = 0.005;
 export const BASS_RELEASE_SECONDS = 0.075;
 
 function pitchClass(midi) {
   return ((midi % 12) + 12) % 12;
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+export function normalizeMelodySound(sound) {
+  return sound === DEFAULT_MELODY_SOUND ||
+    Object.hasOwn(MELODY_SAMPLE_INSTRUMENTS, sound)
+    ? sound
+    : DEFAULT_MELODY_SOUND;
+}
+
+export function pianoReleaseProfile(midi, volume, duration) {
+  const midiNorm = clamp01(
+    (midi - PIANO_RELEASE_MIDI_LOW) /
+      (PIANO_RELEASE_MIDI_HIGH - PIANO_RELEASE_MIDI_LOW),
+  );
+  const volumeNorm = clamp01(
+    volume / PIANO_RELEASE_VOLUME_REFERENCE,
+  );
+  const baseTimeConstant =
+    PIANO_RELEASE_TIME_CONSTANT_LOW_SECONDS +
+    (PIANO_RELEASE_TIME_CONSTANT_HIGH_SECONDS -
+      PIANO_RELEASE_TIME_CONSTANT_LOW_SECONDS) *
+      midiNorm;
+  const timeConstant = Math.max(
+    0.024,
+    baseTimeConstant +
+      volumeNorm * PIANO_RELEASE_VOLUME_BOOST_SECONDS,
+  );
+  const preferredFadeBefore = Math.max(0.02, timeConstant * 0.9);
+  return Object.freeze({
+    fadeBefore:
+      duration > 0
+        ? Math.min(
+            preferredFadeBefore,
+            Math.max(0.02, duration * 0.28),
+          )
+        : preferredFadeBefore,
+    timeConstant,
+  });
 }
 
 export function keyboardMidiNotes(keyboard) {
@@ -50,7 +99,7 @@ export function createAudioRuntime({
 } = {}) {
   let audioContext;
   let outputNode = null;
-  let melodySound = initialMelodySound;
+  let melodySound = normalizeMelodySound(initialMelodySound);
   let chickBuffer = null;
   const activeAudioSources = new Set();
   const activeInputTones = new Set();
@@ -82,7 +131,8 @@ export function createAudioRuntime({
   }
 
   function setMelodySound(sound) {
-    melodySound = sound;
+    melodySound = normalizeMelodySound(sound);
+    return melodySound;
   }
 
   function getMelodySound() {
@@ -237,6 +287,7 @@ export function createAudioRuntime({
     overtone.start(start);
     oscillator.stop(stop + 0.02);
     overtone.stop(stop + 0.02);
+    return stop - context.currentTime;
   }
 
   function playTone(
@@ -247,15 +298,13 @@ export function createAudioRuntime({
     sound = melodySound,
   ) {
     if (sound === DEFAULT_MELODY_SOUND) {
-      playSyntheticTone(midi, startAt, duration, emphasis);
-      return;
+      return playSyntheticTone(midi, startAt, duration, emphasis);
     }
     const instrument = MELODY_SAMPLE_INSTRUMENTS[sound];
     const sampleMidi = melodySampleMidi(midi, sound);
     const buffer = melodySampleBuffers.get(`${sound}:${sampleMidi}`);
     if (!buffer) {
-      playSyntheticTone(midi, startAt, duration, emphasis);
-      return;
+      return playSyntheticTone(midi, startAt, duration, emphasis);
     }
 
     const context = getAudioContext();
@@ -273,14 +322,10 @@ export function createAudioRuntime({
       0.012,
       Math.min(duration, availableDuration),
     );
-    const stop = start + safeDuration;
+    const noteEnd = start + safeDuration;
     const attack = Math.min(
       MELODY_ATTACK_SECONDS,
       safeDuration * 0.25,
-    );
-    const release = Math.max(
-      start + attack + 0.001,
-      stop - Math.min(MELODY_RELEASE_SECONDS, safeDuration * 0.2),
     );
     const volume = emphasis
       ? MELODY_EMPHASIS_GAIN
@@ -290,12 +335,49 @@ export function createAudioRuntime({
     source.playbackRate.setValueAtTime(playbackRate, start);
     gain.gain.setValueAtTime(0.0001, start);
     gain.gain.exponentialRampToValueAtTime(volume, start + attack);
-    gain.gain.setValueAtTime(volume, release);
-    gain.gain.exponentialRampToValueAtTime(0.0001, stop);
+
+    let stop;
+    if (sound === "piano") {
+      const { fadeBefore, timeConstant } = pianoReleaseProfile(
+        midi,
+        volume,
+        safeDuration,
+      );
+      const release = Math.max(
+        start + attack,
+        noteEnd - fadeBefore,
+      );
+      const releaseEnd = Math.max(
+        noteEnd,
+        release +
+          Math.max(
+            0.02,
+            timeConstant * PIANO_RELEASE_SETTLE_MULTIPLIER,
+          ),
+      );
+      stop = Math.min(start + availableDuration, releaseEnd);
+      gain.gain.setValueAtTime(volume, release);
+      gain.gain.setTargetAtTime(
+        0.0001,
+        release,
+        timeConstant,
+      );
+      gain.gain.setValueAtTime(0, stop);
+    } else {
+      stop = noteEnd;
+      const release = Math.max(
+        start + attack + 0.001,
+        stop - Math.min(MELODY_RELEASE_SECONDS, safeDuration * 0.2),
+      );
+      gain.gain.setValueAtTime(volume, release);
+      gain.gain.exponentialRampToValueAtTime(0.0001, stop);
+    }
+
     source.connect(gain).connect(getOutputNode());
     trackSource(source);
     source.start(start, sampleOffset);
-    source.stop(stop + 0.02);
+    source.stop(stop + (sound === "piano" ? 0 : 0.02));
+    return stop - context.currentTime;
   }
 
   function prepareInputAudio() {

@@ -566,6 +566,21 @@ output {
   font-size: 0.72rem;
 }
 
+.developer-sound-setting {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.developer-sound-setting select {
+  width: 100%;
+  padding: 8px 10px;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
 .favorites-panel {
   width: min(100%, 760px);
   margin-inline: auto;

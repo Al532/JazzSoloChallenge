@@ -48,11 +48,12 @@ musicien et morceau. La tonalité reste volontairement masquée.
 
 ## Son et lecture
 
-La mélodie et le clavier publics utilisent le son synthétique. Les instruments
-échantillonnés de clarinette et de piano restent conservés mais ne sont pas
-exposés dans l’interface. Les fondamentales de basse suivent les accords
-annotés ; un chick de charleston marque les temps 2 et 4. La vitesse se règle
-directement sous le clavier pendant le jeu.
+La mélodie et le clavier publics utilisent le son synthétique. Le mode
+développeur expose un sélecteur permettant d’essayer les instruments
+échantillonnés de clarinette et de piano. Le piano utilise une release
+exponentielle adaptative inspirée de SharpEleven. Les fondamentales de basse
+suivent les accords annotés ; un chick de charleston marque les temps 2 et 4.
+La vitesse se règle directement sous le clavier pendant le jeu.
 
 Un clavier compatible Web MIDI peut être activé depuis le bouton `MIDI` en
 jeu. Les notes restent audibles jusqu’au relâchement de la touche ; seuls les
