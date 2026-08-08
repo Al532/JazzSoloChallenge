@@ -384,20 +384,45 @@ export function createAudioRuntime({
     getOutputNode();
   }
 
-  function startInputTone(midi, velocity = 1) {
+  function trackInputTone(midi, sound, source, releaseSource) {
+    let finished = false;
+    let tone;
+
+    function finish() {
+      if (finished) return false;
+      finished = true;
+      activeInputTones.delete(tone);
+      return true;
+    }
+
+    tone = Object.freeze({
+      midi,
+      sound,
+      stop() {
+        if (!finish()) return;
+        releaseSource();
+      },
+    });
+    source.addEventListener("ended", finish);
+    activeInputTones.add(tone);
+    return tone;
+  }
+
+  function inputVolume(baseVolume, velocity) {
+    const normalizedVelocity = Math.max(
+      0,
+      Math.min(1, Number(velocity) || 0),
+    );
+    return baseVolume * (0.25 + normalizedVelocity * 0.75);
+  }
+
+  function startSyntheticInputTone(midi, velocity) {
     const context = getAudioContext();
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     const frequency = 440 * 2 ** ((midi - 69) / 12);
     const start = context.currentTime;
-    const normalizedVelocity = Math.max(
-      0,
-      Math.min(1, Number(velocity) || 0),
-    );
-    const volume =
-      SYNTHETIC_MELODY_GAIN * (0.25 + normalizedVelocity * 0.75);
-    let stopped = false;
-    let tone;
+    const volume = inputVolume(SYNTHETIC_MELODY_GAIN, velocity);
 
     oscillator.type = "triangle";
     oscillator.frequency.value = frequency;
@@ -409,24 +434,86 @@ export function createAudioRuntime({
     oscillator.connect(gain).connect(getOutputNode());
     oscillator.start(start);
 
-    tone = Object.freeze({
+    return trackInputTone(
       midi,
-      stop() {
-        if (stopped) return;
-        stopped = true;
+      DEFAULT_MELODY_SOUND,
+      oscillator,
+      () => {
         const releaseStart = context.currentTime;
         const releaseEnd = releaseStart + MIDI_INPUT_RELEASE_SECONDS;
         gain.gain.setValueAtTime(volume, releaseStart);
         gain.gain.exponentialRampToValueAtTime(0.0001, releaseEnd);
         oscillator.stop(releaseEnd + 0.005);
-        activeInputTones.delete(tone);
       },
+    );
+  }
+
+  function startSampleInputTone(midi, velocity, sound) {
+    const instrument = MELODY_SAMPLE_INSTRUMENTS[sound];
+    const sampleMidi = melodySampleMidi(midi, sound);
+    const buffer = melodySampleBuffers.get(`${sound}:${sampleMidi}`);
+    if (!buffer) return null;
+
+    const context = getAudioContext();
+    const source = context.createBufferSource();
+    const gain = context.createGain();
+    const playbackRate = 2 ** ((midi - sampleMidi) / 12);
+    const start = context.currentTime;
+    const sampleOffset = Math.min(
+      instrument.headSeconds,
+      Math.max(0, buffer.duration - 0.001),
+    );
+    const volume = inputVolume(MELODY_GAIN, velocity);
+
+    source.buffer = buffer;
+    source.playbackRate.setValueAtTime(playbackRate, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(
+      volume,
+      start + MIDI_INPUT_ATTACK_SECONDS,
+    );
+    source.connect(gain).connect(getOutputNode());
+    source.start(start, sampleOffset);
+
+    return trackInputTone(midi, sound, source, () => {
+      const releaseStart = context.currentTime;
+      if (sound === "piano") {
+        const { timeConstant } = pianoReleaseProfile(
+          midi,
+          volume,
+          0,
+        );
+        const releaseEnd =
+          releaseStart +
+          timeConstant * PIANO_RELEASE_SETTLE_MULTIPLIER;
+        gain.gain.setValueAtTime(volume, releaseStart);
+        gain.gain.setTargetAtTime(
+          0.0001,
+          releaseStart,
+          timeConstant,
+        );
+        gain.gain.setValueAtTime(0, releaseEnd);
+        source.stop(releaseEnd);
+        return;
+      }
+
+      const releaseEnd = releaseStart + MIDI_INPUT_RELEASE_SECONDS;
+      gain.gain.setValueAtTime(volume, releaseStart);
+      gain.gain.exponentialRampToValueAtTime(0.0001, releaseEnd);
+      source.stop(releaseEnd + 0.005);
     });
-    oscillator.addEventListener("ended", () => {
-      activeInputTones.delete(tone);
-    });
-    activeInputTones.add(tone);
-    return tone;
+  }
+
+  function startInputTone(midi, velocity = 1) {
+    if (melodySound !== DEFAULT_MELODY_SOUND) {
+      const sampleTone = startSampleInputTone(
+        midi,
+        velocity,
+        melodySound,
+      );
+      if (sampleTone) return sampleTone;
+    }
+    return startSyntheticInputTone(midi, velocity);
   }
 
   function stopInputTone(tone) {

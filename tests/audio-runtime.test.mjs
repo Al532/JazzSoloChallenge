@@ -299,6 +299,70 @@ test("la saisie MIDI démarre immédiatement et tient jusqu’au note-off", () =
   ]);
 });
 
+test("la saisie MIDI reprend la clarinette sélectionnée", async () => {
+  const context = new FakeAudioContext({ decodedDuration: 2 });
+  const { runtime } = makeRuntime({
+    context,
+    initialMelodySound: "clarinet",
+  });
+  await runtime.loadMelodySample(69);
+
+  const tone = runtime.startInputTone(69, 0.5);
+  const source = context.sources[0];
+  const inputGain = context.gains[0];
+  const volume = MELODY_GAIN * 0.625;
+
+  assert.equal(tone.sound, "clarinet");
+  assert.equal(context.oscillators.length, 0);
+  assert.ok(source.buffer);
+  assert.deepEqual(source.playbackRate.events, [["set", 1, 10]]);
+  assert.deepEqual(source.startCalls, [[10, 0.025]]);
+  assert.deepEqual(inputGain.gain.events, [
+    ["set", 0.0001, 10],
+    ["exponential", volume, 10 + MIDI_INPUT_ATTACK_SECONDS],
+  ]);
+
+  context.currentTime = 10.2;
+  runtime.stopInputTone(tone);
+  assert.deepEqual(inputGain.gain.events.slice(2), [
+    ["set", volume, 10.2],
+    ["exponential", 0.0001, 10.2 + MIDI_INPUT_RELEASE_SECONDS],
+  ]);
+  assert.deepEqual(source.stopCalls, [
+    [10.2 + MIDI_INPUT_RELEASE_SECONDS + 0.005],
+  ]);
+});
+
+test("la saisie MIDI reprend le piano et sa release adaptative", async () => {
+  const context = new FakeAudioContext({ decodedDuration: 2 });
+  const { runtime } = makeRuntime({
+    context,
+    initialMelodySound: "piano",
+  });
+  await runtime.loadMelodySample(60);
+
+  const tone = runtime.startInputTone(60, 0.5);
+  const source = context.sources[0];
+  const inputGain = context.gains[0];
+  const volume = MELODY_GAIN * 0.625;
+  const { timeConstant } = pianoReleaseProfile(60, volume, 0);
+
+  assert.equal(tone.sound, "piano");
+  assert.equal(context.oscillators.length, 0);
+  assert.deepEqual(source.startCalls, [[10, 0]]);
+
+  context.currentTime = 10.2;
+  runtime.stopInputTone(tone);
+  const releaseEnd =
+    10.2 + timeConstant * PIANO_RELEASE_SETTLE_MULTIPLIER;
+  assert.deepEqual(inputGain.gain.events.slice(2, 4), [
+    ["set", volume, 10.2],
+    ["target", 0.0001, 10.2, timeConstant],
+  ]);
+  assert.deepEqual(inputGain.gain.events[4], ["set", 0, releaseEnd]);
+  assert.deepEqual(source.stopCalls, [[releaseEnd]]);
+});
+
 test("les samples de mélodie sont dédupliqués, mis en cache et transposés", async () => {
   const fetched = [];
   const context = new FakeAudioContext({ decodedDuration: 1 });
