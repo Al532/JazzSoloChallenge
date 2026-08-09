@@ -868,7 +868,13 @@ export function applyDocumentTranslations(root = globalThis.document) {
   if (description) description.content = t("meta.description");
   const manifest = root.querySelector('link[rel="manifest"]');
   if (manifest) {
-    manifest.href =
-      locale === "fr" ? "./manifest-fr.webmanifest" : "./manifest.webmanifest";
+    const manifestName = [
+      "manifest",
+      locale === "fr" ? "fr" : "",
+      globalThis.__JAZZ_SOLO_MOBILE_OR_TABLET__ ? "mobile" : "",
+    ]
+      .filter(Boolean)
+      .join("-");
+    manifest.href = `./${manifestName}.webmanifest`;
   }
 }

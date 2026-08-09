@@ -30,16 +30,32 @@ test("le document et le manifeste utilisent la langue système dès le chargemen
   )?.[1];
   assert.ok(setupScript);
 
-  for (const [systemLanguage, expectedLocale, expectedManifest] of [
-    ["fr-FR", "fr", "./manifest-fr.webmanifest"],
-    ["en-US", "en", "./manifest.webmanifest"],
-    ["de-DE", "en", "./manifest.webmanifest"],
+  for (const [systemLanguage, device, expectedLocale, expectedManifest] of [
+    ["fr-FR", {}, "fr", "./manifest-fr.webmanifest"],
+    ["en-US", {}, "en", "./manifest.webmanifest"],
+    ["de-DE", {}, "en", "./manifest.webmanifest"],
+    [
+      "fr-FR",
+      { userAgent: "Mozilla/5.0 (Linux; Android 16; Pixel 9) Mobile" },
+      "fr",
+      "./manifest-fr-mobile.webmanifest",
+    ],
+    [
+      "en-US",
+      { maxTouchPoints: 5, platform: "MacIntel" },
+      "en",
+      "./manifest-mobile.webmanifest",
+    ],
   ]) {
     const manifest = { href: "./manifest.webmanifest" };
     const context = {
       navigator: {
+        maxTouchPoints: 0,
+        platform: "",
+        userAgent: "Desktop",
         languages: [systemLanguage],
         language: systemLanguage,
+        ...device,
       },
       document: {
         documentElement: { lang: "en" },
@@ -50,6 +66,10 @@ test("le document et le manifeste utilisent la langue système dès le chargemen
     runInNewContext(setupScript, context);
     assert.equal(context.document.documentElement.lang, expectedLocale);
     assert.equal(context.__JAZZ_SOLO_LOCALE__, expectedLocale);
+    assert.equal(
+      context.__JAZZ_SOLO_MOBILE_OR_TABLET__,
+      expectedManifest.includes("mobile"),
+    );
     assert.equal(manifest.href, expectedManifest);
   }
 });

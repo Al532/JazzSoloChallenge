@@ -18,17 +18,34 @@
       const primaryLanguage =
         navigator.languages?.[0] ?? navigator.language ?? "en";
       const appLocale = /^fr(?:-|$)/i.test(primaryLanguage) ? "fr" : "en";
+      const iosDevice =
+        /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      const mobileOrTablet =
+        iosDevice ||
+        navigator.userAgentData?.mobile === true ||
+        /Android|IEMobile|Mobile|Opera Mini|Silk|Tablet/i.test(
+          navigator.userAgent,
+        ) ||
+        (navigator.maxTouchPoints > 0 &&
+          globalThis.matchMedia?.("(pointer: coarse)")?.matches === true);
       document.documentElement.lang = appLocale;
       globalThis.__JAZZ_SOLO_LOCALE__ = appLocale;
-      if (appLocale === "fr") {
-        document.querySelector('link[rel="manifest"]').href =
-          "./manifest-fr.webmanifest";
-      }
+      globalThis.__JAZZ_SOLO_MOBILE_OR_TABLET__ = mobileOrTablet;
+      const manifestName = [
+        "manifest",
+        appLocale === "fr" ? "fr" : "",
+        mobileOrTablet ? "mobile" : "",
+      ]
+        .filter(Boolean)
+        .join("-");
+      document.querySelector('link[rel="manifest"]').href =
+        `./${manifestName}.webmanifest`;
     </script>
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
-    <link rel="stylesheet" href="./styles.css?v=80" />
-    <script type="module" src="./src/app.js?v=80"></script>
+    <link rel="stylesheet" href="./styles.css?v=81" />
+    <script type="module" src="./src/app.js?v=81"></script>
   </head>
   <body>
     <div

@@ -3,7 +3,14 @@ import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 import { createAppShell } from "../src/app-shell.js";
 
-function createFixture({ ios = false } = {}) {
+function createFixture({
+  coarsePointer = false,
+  ios = false,
+  maxTouchPoints,
+  platform,
+  userAgent,
+  userAgentData,
+} = {}) {
   const dom = new JSDOM(`<!doctype html>
     <html>
       <body class="home-view">
@@ -21,7 +28,7 @@ function createFixture({ ios = false } = {}) {
   dom.window.matchMedia = (query) => {
     if (!mediaQueries.has(query)) {
       mediaQueries.set(query, {
-        matches: false,
+        matches: query === "(pointer: coarse)" && coarsePointer,
         addEventListener() {},
       });
     }
@@ -30,14 +37,15 @@ function createFixture({ ios = false } = {}) {
 
   const serviceWorkerCalls = [];
   const navigatorObject = {
-    maxTouchPoints: 0,
-    platform: "",
+    maxTouchPoints: maxTouchPoints ?? (ios ? 5 : 0),
+    platform: platform ?? (ios ? "iPhone" : ""),
     serviceWorker: {
       async register(...args) {
         serviceWorkerCalls.push(args);
       },
     },
-    userAgent: ios ? "iPhone" : "Desktop",
+    userAgent: userAgent ?? (ios ? "iPhone" : "Desktop"),
+    userAgentData,
   };
   const orientationCalls = [];
   const screenObject = {
@@ -169,16 +177,14 @@ test("le shell conserve les instructions iOS accessibles", () => {
   fixture.dom.window.close();
 });
 
-test("le shell active puis restaure le mode plein écran", async () => {
+test("le shell desktop active le jeu sans forcer le plein écran", async () => {
   const fixture = createFixture();
   fixture.shell.setUp();
 
   await fixture.shell.enterGameMode();
   assert.equal(fixture.shell.isGameModeActive(), true);
   assert.equal(fixture.document.body.classList.contains("home-view"), false);
-  assert.deepEqual(fixture.requestFullscreenOptions, {
-    navigationUI: "hide",
-  });
+  assert.equal(fixture.requestFullscreenOptions, null);
   assert.deepEqual(fixture.orientationCalls, [["lock", "landscape"]]);
   assert.equal(
     fixture.elements.fullscreenButton.getAttribute("aria-pressed"),
@@ -186,7 +192,7 @@ test("le shell active puis restaure le mode plein écran", async () => {
   );
 
   await fixture.shell.leaveGameMode();
-  assert.equal(fixture.exitFullscreenCalls, 1);
+  assert.equal(fixture.exitFullscreenCalls, 0);
   assert.equal(fixture.shell.isGameModeActive(), false);
   assert.deepEqual(fixture.closeOriginalCalls.at(-1), {
     restoreFocus: false,
@@ -197,10 +203,50 @@ test("le shell active puis restaure le mode plein écran", async () => {
     "false",
   );
 
-  await fixture.shell.enterGameMode({ lockOrientation: false });
-  fixture.fullscreenElement = null;
-  fixture.document.dispatchEvent(new fixture.Event("fullscreenchange"));
-  assert.equal(fixture.fullscreenExitCalls, 1);
-  assert.equal(fixture.shell.isGameModeActive(), false);
   fixture.dom.window.close();
+});
+
+test("le shell réserve le plein écran natif aux mobiles et tablettes", async () => {
+  const devices = [
+    {
+      name: "mobile Android",
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 16; Pixel 9) AppleWebKit/537.36 Mobile",
+    },
+    {
+      maxTouchPoints: 5,
+      name: "iPadOS",
+      platform: "MacIntel",
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15",
+    },
+    {
+      coarsePointer: true,
+      maxTouchPoints: 10,
+      name: "tablette à pointeur tactile",
+      userAgent: "Desktop",
+    },
+  ];
+
+  for (const { name, ...device } of devices) {
+    const fixture = createFixture(device);
+    fixture.shell.setUp();
+
+    await fixture.shell.enterGameMode({ lockOrientation: false });
+    assert.deepEqual(
+      fixture.requestFullscreenOptions,
+      { navigationUI: "hide" },
+      name,
+    );
+
+    await fixture.shell.leaveGameMode();
+    assert.equal(fixture.exitFullscreenCalls, 1, name);
+
+    await fixture.shell.enterGameMode({ lockOrientation: false });
+    fixture.fullscreenElement = null;
+    fixture.document.dispatchEvent(new fixture.Event("fullscreenchange"));
+    assert.equal(fixture.fullscreenExitCalls, 1, name);
+    assert.equal(fixture.shell.isGameModeActive(), false, name);
+    fixture.dom.window.close();
+  }
 });

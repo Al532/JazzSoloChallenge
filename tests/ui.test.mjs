@@ -39,6 +39,18 @@ const frenchManifest = JSON.parse(
     "utf8",
   ),
 );
+const mobileManifest = JSON.parse(
+  await readFile(
+    new URL("../manifest-mobile.webmanifest", import.meta.url),
+    "utf8",
+  ),
+);
+const frenchMobileManifest = JSON.parse(
+  await readFile(
+    new URL("../manifest-fr-mobile.webmanifest", import.meta.url),
+    "utf8",
+  ),
+);
 const icon = await readFile(
   new URL("../icon.svg", import.meta.url),
   "utf8",
@@ -94,7 +106,12 @@ test("l’accueil public conserve son contenu et ses actions", () => {
   const localeBootstrap = document.querySelector("head script:not([src])");
   assert.ok(localeBootstrap);
   assert.ok(localeBootstrap.textContent.includes("navigator.languages?.[0]"));
-  assert.ok(localeBootstrap.textContent.includes("manifest-fr.webmanifest"));
+  assert.ok(localeBootstrap.textContent.includes("mobileOrTablet"));
+  assert.ok(
+    localeBootstrap.textContent.includes(
+      "__JAZZ_SOLO_MOBILE_OR_TABLET__",
+    ),
+  );
 });
 
 test("le contrat HTML expose uniquement les outils développeur actuels", () => {
@@ -454,7 +471,7 @@ test("les manifestes et le shell PWA restent synchronisés", () => {
     document.querySelector('link[rel="canonical"]')?.href,
     "https://al532.github.io/JazzSoloChallenge/",
   );
-  assert.equal(manifest.display, "fullscreen");
+  assert.equal(manifest.display, "standalone");
   assert.equal(manifest.orientation, "any");
   assert.equal(manifest.name, "Jazz Solo Challenge");
   assert.equal(manifest.lang, "en");
@@ -462,7 +479,12 @@ test("les manifestes et le shell PWA restent synchronisés", () => {
   assert.equal(frenchManifest.lang, "fr");
   assert.equal(frenchManifest.id, manifest.id);
   assert.equal(frenchManifest.name, manifest.name);
+  assert.equal(frenchManifest.display, manifest.display);
   assert.equal(frenchManifest.orientation, "any");
+  assert.equal(mobileManifest.display, "fullscreen");
+  assert.equal(frenchMobileManifest.display, mobileManifest.display);
+  assert.equal(mobileManifest.id, manifest.id);
+  assert.equal(frenchMobileManifest.id, manifest.id);
 
   const stylesheet = document.querySelector('link[rel="stylesheet"]');
   const appScript = document.querySelector('script[type="module"][src]');
@@ -517,6 +539,8 @@ test("les manifestes et le shell PWA restent synchronisés", () => {
     "./data/youtube-search-recordings.js",
     "./manifest.webmanifest",
     "./manifest-fr.webmanifest",
+    "./manifest-mobile.webmanifest",
+    "./manifest-fr-mobile.webmanifest",
   ]) {
     assert.equal(shellAssets.has(asset), true, asset);
   }

@@ -44,6 +44,31 @@ export function createAppShell({
     );
   }
 
+  function isMobileOrTabletDevice() {
+    if (
+      typeof windowObject.__JAZZ_SOLO_MOBILE_OR_TABLET__ === "boolean"
+    ) {
+      return windowObject.__JAZZ_SOLO_MOBILE_OR_TABLET__;
+    }
+
+    if (isIosDevice() || navigatorObject.userAgentData?.mobile === true) {
+      return true;
+    }
+
+    if (
+      /Android|IEMobile|Mobile|Opera Mini|Silk|Tablet/i.test(
+        navigatorObject.userAgent,
+      )
+    ) {
+      return true;
+    }
+
+    return (
+      navigatorObject.maxTouchPoints > 0 &&
+      windowObject.matchMedia?.("(pointer: coarse)")?.matches === true
+    );
+  }
+
   function isInstalledApp() {
     return (
       fullscreenDisplayMode.matches ||
@@ -189,6 +214,7 @@ export function createAppShell({
 
     try {
       if (
+        isMobileOrTabletDevice() &&
         !fullscreenDisplayMode.matches &&
         !documentObject.fullscreenElement &&
         documentObject.documentElement.requestFullscreen
