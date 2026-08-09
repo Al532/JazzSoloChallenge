@@ -12,6 +12,7 @@ export function createAppShell({
   elements,
   navigatorObject,
   onFullscreenExit,
+  reloadPage = () => windowObject.location.reload(),
   screenObject,
   translate,
   windowObject,
@@ -24,10 +25,21 @@ export function createAppShell({
   );
   let deferredInstallPrompt = null;
   let installInstructionsReturnFocus = null;
+  let reloadingForServiceWorkerUpdate = false;
   let viewportSyncTimers = [];
 
   function registerOfflineSupport() {
     if ("serviceWorker" in navigatorObject) {
+      if (navigatorObject.serviceWorker.controller) {
+        navigatorObject.serviceWorker.addEventListener?.(
+          "controllerchange",
+          () => {
+            if (reloadingForServiceWorkerUpdate) return;
+            reloadingForServiceWorkerUpdate = true;
+            reloadPage();
+          },
+        );
+      }
       navigatorObject.serviceWorker
         .register("./sw.js", { updateViaCache: "none" })
         .catch(() => {

@@ -1,14 +1,14 @@
 // Préfixe historique conservé pour ne pas abandonner les caches existants.
 const CACHE_PREFIX = "dictee-musicale-";
-const SHELL_CACHE = `${CACHE_PREFIX}shell-v83`;
+const SHELL_CACHE = `${CACHE_PREFIX}shell-v84`;
 const CORPUS_CACHE = `${CACHE_PREFIX}corpus-0bebff94`;
 const CORPUS_MANIFEST = "./data/wjazzd-blocks/manifest.json";
 const CORPUS_BLOCK_PATH = "/data/wjazzd-blocks/block-";
 
 const CORE_SHELL = [
   "./index.html",
-  "./styles.css?v=83",
-  "./src/app.js?v=83",
+  "./styles.css?v=84",
+  "./src/app.js?v=84",
   "./src/app-dom.js",
   "./src/app-renderer.js",
   "./src/app-shell.js",

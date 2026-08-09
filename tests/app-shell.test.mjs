@@ -8,6 +8,7 @@ function createFixture({
   ios = false,
   maxTouchPoints,
   platform,
+  serviceWorkerController = null,
   userAgent,
   userAgentData,
 } = {}) {
@@ -36,10 +37,15 @@ function createFixture({
   };
 
   const serviceWorkerCalls = [];
+  const serviceWorkerListeners = new Map();
   const navigatorObject = {
     maxTouchPoints: maxTouchPoints ?? (ios ? 5 : 0),
     platform: platform ?? (ios ? "iPhone" : ""),
     serviceWorker: {
+      controller: serviceWorkerController,
+      addEventListener(type, listener) {
+        serviceWorkerListeners.set(type, listener);
+      },
       async register(...args) {
         serviceWorkerCalls.push(args);
       },
@@ -76,6 +82,7 @@ function createFixture({
 
   const closeOriginalCalls = [];
   let fullscreenExitCalls = 0;
+  let reloadCalls = 0;
   const elements = {
     closeIosInstall: document.querySelector("#close-ios"),
     fullscreenButton: document.querySelector("#fullscreen"),
@@ -90,6 +97,9 @@ function createFixture({
     navigatorObject,
     onFullscreenExit: () => {
       fullscreenExitCalls += 1;
+    },
+    reloadPage: () => {
+      reloadCalls += 1;
     },
     screenObject,
     translate: (key) => key,
@@ -118,7 +128,11 @@ function createFixture({
       return requestFullscreenOptions;
     },
     orientationCalls,
+    get reloadCalls() {
+      return reloadCalls;
+    },
     serviceWorkerCalls,
+    serviceWorkerListeners,
     shell,
     window: dom.window,
   };
@@ -156,6 +170,19 @@ test("le shell enregistre le service worker et pilote l’installation", async (
   await Promise.resolve();
   assert.equal(promptCalls, 1);
   assert.equal(fixture.elements.installButton.hidden, true);
+  fixture.dom.window.close();
+});
+
+test("une mise à jour du service worker recharge une seule fois la page", () => {
+  const fixture = createFixture({ serviceWorkerController: {} });
+  fixture.shell.setUp();
+  const controllerChange = fixture.serviceWorkerListeners.get(
+    "controllerchange",
+  );
+  assert.equal(typeof controllerChange, "function");
+  controllerChange();
+  controllerChange();
+  assert.equal(fixture.reloadCalls, 1);
   fixture.dom.window.close();
 });
 

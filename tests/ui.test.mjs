@@ -569,6 +569,27 @@ test("GitHub Pages publie seulement après les contrôles automatisés", () => {
     /mkdir _site[\s\S]*?src[\s\S]*?data[\s\S]*?audio[\s\S]*?path: _site/,
   );
   assert.doesNotMatch(pagesWorkflow, /path: \./);
+
+  const copiedSources = new Set(
+    [...(
+      pagesWorkflow.match(/cp -R \\\n([\s\S]*?)\n\s+_site\//)?.[1] ?? ""
+    ).matchAll(/^\s+([^\s\\]+)(?:\s+\\)?$/gm)].map(
+      (match) => match[1],
+    ),
+  );
+  const publishedShellAssets = new Set(
+    [...serviceWorker.matchAll(/^\s+"(\.\/[^\"]+)",?$/gm)].map(
+      (match) => match[1],
+    ),
+  );
+  for (const asset of publishedShellAssets) {
+    const path = asset.replace(/^\.\//, "").split("?")[0];
+    assert.equal(
+      copiedSources.has(path.split("/")[0]),
+      true,
+      `${asset} doit être inclus dans l’artefact Pages`,
+    );
+  }
 });
 
 test("les ressources d’installation conservent leur contenu et leurs dimensions", async () => {
