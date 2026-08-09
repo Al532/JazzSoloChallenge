@@ -143,9 +143,9 @@ let lickExplorer = null;
 let lickExerciseToolsPromise = null;
 const {
   activeInputToneCount,
-  getAudioContext,
   playBass,
   playChick,
+  playImmediateTone,
   playTone,
   prepareInputAudio,
   preloadBassSamples,
@@ -1708,16 +1708,10 @@ function cancelPhraseAdjustmentReload() {
 }
 
 async function preloadExerciseAssets(generated) {
-  try {
-    await preloadMelodySamples(keyboardMidiNotes(generated.keyboard));
-  } catch {
-    // Un oscillateur de secours garde la dictée jouable hors connexion.
-  }
-  try {
-    await preloadBassSamples(generated.bassHits ?? []);
-  } catch {
-    // La mélodie reste jouable si un sample de basse manque.
-  }
+  await Promise.allSettled([
+    preloadMelodySamples(keyboardMidiNotes(generated.keyboard)),
+    preloadBassSamples(generated.bassHits ?? []),
+  ]);
 }
 
 function loadRecordingWorkshopPhrase(phraseKey) {
@@ -1734,7 +1728,7 @@ function loadRecordingWorkshopPhrase(phraseKey) {
 
 async function playRecordingWorkshopPhrase(generated) {
   const playbackVersion = exerciseLaunchVersion;
-  getAudioContext();
+  prepareInputAudio();
   await preloadExerciseAssets(generated);
   if (
     playbackVersion !== exerciseLaunchVersion ||
@@ -1814,7 +1808,7 @@ async function prepareAndLaunchExercise({
   cancelPhraseAdjustmentReload();
   stopAllTones();
   const launchVersion = exerciseLaunchVersion;
-  getAudioContext();
+  prepareInputAudio();
   const plan = resolvePlan();
   if (!plan) return false;
   configureMode(plan);
@@ -2310,7 +2304,7 @@ function handlePianoInput(midi, key) {
     restoreExerciseInput(t("playback.interrupted"));
   }
 
-  playTone(midi, 0, 0.36);
+  playImmediateTone(midi, 0.36);
   key.classList.add("active");
   window.setTimeout(() => key.classList.remove("active"), 160);
   applyExerciseInput(midi, key);
@@ -2335,10 +2329,10 @@ function handleMidiNoteOn({ id, midi, velocity }) {
     commit: acceptingInput,
   });
   if (!Number.isFinite(mappedMidi)) return;
+  const tone = startInputTone(mappedMidi, velocity / 127);
   const key = elements.piano.querySelector(
     `[data-midi="${mappedMidi}"]`,
   );
-  const tone = startInputTone(mappedMidi, velocity / 127);
   activeMidiTones.set(id, { key, midi: mappedMidi, tone });
   key?.classList.add("active");
   applyExerciseInput(mappedMidi, key);

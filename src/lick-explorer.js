@@ -572,15 +572,18 @@ export function createLickExplorer({
       rhythmMode === LICK_RHYTHM_MODE.synthetic && pilot
         ? createSyntheticLickSequence(lick, transposition, pilot)
         : createLickSequence(lick, transposition);
-    audioRuntime.getAudioContext();
-    await audioRuntime.preloadMelodySamples(sequence.notes);
-    if (sequence.bassHits?.length && audioRuntime.preloadBassSamples) {
-      try {
-        await audioRuntime.preloadBassSamples(sequence.bassHits);
-      } catch {
-        // The pilot remains usable without its optional bass samples.
-      }
+    if (audioRuntime.prepareInputAudio) {
+      audioRuntime.prepareInputAudio();
+    } else {
+      audioRuntime.getAudioContext();
     }
+    const assetLoads = [
+      audioRuntime.preloadMelodySamples(sequence.notes),
+    ];
+    if (sequence.bassHits?.length && audioRuntime.preloadBassSamples) {
+      assetLoads.push(audioRuntime.preloadBassSamples(sequence.bassHits));
+    }
+    await Promise.allSettled(assetLoads);
     return schedule(sequence, version);
   }
 

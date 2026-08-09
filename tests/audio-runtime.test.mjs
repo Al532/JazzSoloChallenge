@@ -16,6 +16,7 @@ import {
   PIANO_RELEASE_TIME_CONSTANT_LOW_SECONDS,
   SYNTHETIC_MELODY_GAIN,
   createAudioRuntime,
+  detectSampleHeadSeconds,
   keyboardMidiNotes,
   normalizeMelodySound,
   pianoReleaseProfile,
@@ -83,11 +84,13 @@ class FakeAudioContext {
   constructor({
     currentTime = 10,
     sampleRate = 1000,
+    decodedBuffer = null,
     decodedDuration = 1,
     suspended = false,
   } = {}) {
     this.currentTime = currentTime;
     this.sampleRate = sampleRate;
+    this.decodedBuffer = decodedBuffer;
     this.decodedDuration = decodedDuration;
     this.state = suspended ? "suspended" : "running";
     this.destination = new FakeAudioNode();
@@ -96,6 +99,7 @@ class FakeAudioContext {
     this.sources = [];
     this.filters = [];
     this.compressors = [];
+    this.shapers = [];
     this.buffers = [];
     this.decodeCalls = [];
     this.resumeCalls = 0;
@@ -148,6 +152,14 @@ class FakeAudioContext {
     return compressor;
   }
 
+  createWaveShaper() {
+    const shaper = new FakeAudioNode();
+    shaper.curve = null;
+    shaper.oversample = "none";
+    this.shapers.push(shaper);
+    return shaper;
+  }
+
   createBuffer(channels, frameCount, sampleRate) {
     const channelData = Array.from(
       { length: channels },
@@ -166,6 +178,7 @@ class FakeAudioContext {
 
   async decodeAudioData(bytes) {
     this.decodeCalls.push(bytes);
+    if (this.decodedBuffer) return this.decodedBuffer;
     return {
       duration: this.decodedDuration,
       decodedFrom: bytes,
@@ -222,6 +235,7 @@ test("le runtime expose et valide les trois sons de mélodie", () => {
     minMidi: 36,
     maxMidi: 96,
     headSeconds: 0,
+    autoTrimHead: true,
     fileExtension: "ogg",
   });
   assert.deepEqual(
@@ -232,6 +246,53 @@ test("le runtime expose et valide les trois sons de mélodie", () => {
   assert.equal(normalizeMelodySound("clarinet"), "clarinet");
   assert.equal(normalizeMelodySound("piano"), "piano");
   assert.equal(normalizeMelodySound("unknown"), DEFAULT_MELODY_SOUND);
+});
+
+test("le silence initial des samples est retiré avec une marge anti-clic", () => {
+  const left = new Float32Array(40);
+  const right = new Float32Array(40);
+  left[4] = 0.001;
+  right[12] = 0.004;
+  const buffer = {
+    duration: 0.04,
+    length: 40,
+    numberOfChannels: 2,
+    sampleRate: 1000,
+    getChannelData(channel) {
+      return channel === 0 ? left : right;
+    },
+  };
+
+  assert.equal(detectSampleHeadSeconds(buffer), 0.011);
+  assert.equal(
+    detectSampleHeadSeconds(buffer, { preRollSeconds: 0.004 }),
+    0.008,
+  );
+  assert.equal(detectSampleHeadSeconds({ duration: 1 }), 0);
+});
+
+test("le piano réutilise l’offset détecté au chargement", async () => {
+  const samples = new Float32Array(1000);
+  samples[10] = 0.004;
+  const decodedBuffer = {
+    duration: 1,
+    length: samples.length,
+    numberOfChannels: 1,
+    sampleRate: 1000,
+    getChannelData() {
+      return samples;
+    },
+  };
+  const context = new FakeAudioContext({ decodedBuffer });
+  const { runtime } = makeRuntime({
+    context,
+    initialMelodySound: "piano",
+  });
+
+  await runtime.loadMelodySample(60);
+  runtime.startInputTone(60);
+
+  assert.deepEqual(context.sources[0].startCalls, [[10, 0.009]]);
 });
 
 test("le son synthétique conserve oscillateurs, enveloppes et fallback", () => {
@@ -270,6 +331,22 @@ test("le son synthétique conserve oscillateurs, enveloppes et fallback", () => 
   assert.equal(runtime.activeSourceCount(), 1);
 });
 
+test("le piano à l’écran contourne aussi le compresseur à anticipation", () => {
+  const context = new FakeAudioContext();
+  const { runtime } = makeRuntime({ context });
+
+  runtime.playImmediateTone(69);
+
+  assert.deepEqual(context.oscillators[0].startCalls, [[10]]);
+  assert.equal(context.compressors.length, 0);
+  assert.equal(context.shapers.length, 1);
+  assert.strictEqual(context.gains[1].connections[0], context.gains[0]);
+  assert.strictEqual(
+    context.gains[0].connections[0],
+    context.shapers[0],
+  );
+});
+
 test("la saisie MIDI démarre immédiatement et tient jusqu’au note-off", () => {
   const context = new FakeAudioContext();
   const { runtime } = makeRuntime({ context });
@@ -277,12 +354,25 @@ test("la saisie MIDI démarre immédiatement et tient jusqu’au note-off", () =
   runtime.prepareInputAudio();
   const tone = runtime.startInputTone(69, 0.5);
   const oscillator = context.oscillators[0];
-  const inputGain = context.gains[1];
+  const inputGain = context.gains.at(-1);
   const volume = SYNTHETIC_MELODY_GAIN * 0.625;
 
   assert.deepEqual(oscillator.startCalls, [[10]]);
   assert.deepEqual(oscillator.stopCalls, []);
   assert.equal(runtime.activeInputToneCount(), 1);
+  assert.equal(context.shapers.length, 1);
+  assert.strictEqual(
+    inputGain.connections[0],
+    context.gains[1],
+  );
+  assert.strictEqual(
+    context.gains[1].connections[0],
+    context.shapers[0],
+  );
+  assert.strictEqual(
+    context.shapers[0].connections[0],
+    context.destination,
+  );
   assert.deepEqual(inputGain.gain.events, [
     ["set", 0.0001, 10],
     ["exponential", volume, 10 + MIDI_INPUT_ATTACK_SECONDS],

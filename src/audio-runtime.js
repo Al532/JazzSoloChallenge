@@ -11,6 +11,7 @@ export const MELODY_SAMPLE_INSTRUMENTS = Object.freeze({
     minMidi: 36,
     maxMidi: 96,
     headSeconds: 0,
+    autoTrimHead: true,
     fileExtension: "ogg",
   }),
 });
@@ -22,10 +23,13 @@ export const MELODY_GAIN = 1;
 export const MELODY_EMPHASIS_GAIN = 1.12;
 export const SYNTHETIC_MELODY_GAIN = 0.36;
 export const SYNTHETIC_MELODY_EMPHASIS_GAIN = 0.5;
-export const MIDI_INPUT_ATTACK_SECONDS = 0.003;
+export const MIDI_INPUT_ATTACK_SECONDS = 0.001;
 export const MIDI_INPUT_RELEASE_SECONDS = 0.025;
 export const MELODY_ATTACK_SECONDS = 0.006;
 export const MELODY_RELEASE_SECONDS = 0.035;
+export const SAMPLE_HEAD_THRESHOLD = 0.002;
+export const SAMPLE_HEAD_PREROLL_SECONDS = 0.001;
+export const SAMPLE_HEAD_SCAN_SECONDS = 0.02;
 export const PIANO_RELEASE_TIME_CONSTANT_LOW_SECONDS = 0.2;
 export const PIANO_RELEASE_TIME_CONSTANT_HIGH_SECONDS = 0.15;
 export const PIANO_RELEASE_MIDI_LOW = 45;
@@ -90,6 +94,80 @@ export function keyboardMidiNotes(keyboard) {
   );
 }
 
+export function detectSampleHeadSeconds(
+  buffer,
+  {
+    maxSeconds = SAMPLE_HEAD_SCAN_SECONDS,
+    preRollSeconds = SAMPLE_HEAD_PREROLL_SECONDS,
+    threshold = SAMPLE_HEAD_THRESHOLD,
+  } = {},
+) {
+  const sampleRate = Number(buffer?.sampleRate);
+  const frameCount = Number(buffer?.length);
+  const channelCount = Number(buffer?.numberOfChannels);
+  if (
+    !Number.isFinite(sampleRate) ||
+    sampleRate <= 0 ||
+    !Number.isFinite(frameCount) ||
+    frameCount <= 0 ||
+    !Number.isFinite(channelCount) ||
+    channelCount <= 0 ||
+    typeof buffer?.getChannelData !== "function"
+  ) {
+    return 0;
+  }
+
+  const scanFrames = Math.min(
+    frameCount,
+    Math.ceil(Math.max(0, maxSeconds) * sampleRate),
+  );
+  const preRollFrames = Math.ceil(
+    Math.max(0, preRollSeconds) * sampleRate,
+  );
+  const audibleThreshold = Math.max(0, Number(threshold) || 0);
+  let channels;
+  try {
+    channels = Array.from(
+      { length: channelCount },
+      (_, channel) => buffer.getChannelData(channel),
+    );
+  } catch {
+    return 0;
+  }
+
+  for (let frame = 0; frame < scanFrames; frame += 1) {
+    if (
+      channels.some(
+        (samples) => Math.abs(samples[frame] ?? 0) >= audibleThreshold,
+      )
+    ) {
+      return Math.max(0, frame - preRollFrames) / sampleRate;
+    }
+  }
+  return 0;
+}
+
+function realtimeLimiterCurve(length = 2_049) {
+  const curve = new Float32Array(length);
+  const threshold = 10 ** (MASTER_LIMITER_THRESHOLD_DB / 20);
+  const saturation = 3;
+  for (let index = 0; index < length; index += 1) {
+    const input = (index / (length - 1)) * 2 - 1;
+    const absolute = Math.abs(input);
+    if (absolute <= threshold) {
+      curve[index] = input;
+      continue;
+    }
+    const normalized = (absolute - threshold) / (1 - threshold);
+    const limited =
+      threshold +
+      ((1 - threshold) * Math.tanh(saturation * normalized)) /
+        saturation;
+    curve[index] = Math.sign(input) * limited;
+  }
+  return curve;
+}
+
 export function createAudioRuntime({
   audioContextFactory = () =>
     new globalThis.AudioContext({ latencyHint: "interactive" }),
@@ -101,11 +179,13 @@ export function createAudioRuntime({
 } = {}) {
   let audioContext;
   let outputNode = null;
+  let realtimeOutputNode = null;
   let melodySound = normalizeMelodySound(initialMelodySound);
   let chickBuffer = null;
   const activeAudioSources = new Set();
   const activeInputTones = new Set();
   const melodySampleBuffers = new Map();
+  const melodySampleHeads = new Map();
   const melodySampleLoads = new Map();
   const bassSampleBuffers = new Map();
   const bassSampleLoads = new Map();
@@ -130,6 +210,19 @@ export function createAudioRuntime({
     master.connect(limiter).connect(context.destination);
     outputNode = master;
     return outputNode;
+  }
+
+  function getRealtimeOutputNode() {
+    if (realtimeOutputNode) return realtimeOutputNode;
+    const context = getAudioContext();
+    const master = context.createGain();
+    const limiter = context.createWaveShaper();
+    master.gain.value = MASTER_GAIN;
+    limiter.curve = realtimeLimiterCurve();
+    limiter.oversample = "none";
+    master.connect(limiter).connect(context.destination);
+    realtimeOutputNode = master;
+    return realtimeOutputNode;
   }
 
   function setMelodySound(sound) {
@@ -216,6 +309,12 @@ export function createAudioRuntime({
         .then((bytes) => getAudioContext().decodeAudioData(bytes))
         .then((buffer) => {
           melodySampleBuffers.set(sampleKey, buffer);
+          melodySampleHeads.set(
+            sampleKey,
+            instrument.autoTrimHead
+              ? detectSampleHeadSeconds(buffer)
+              : instrument.headSeconds,
+          );
           melodySampleLoads.delete(sampleKey);
           return buffer;
         })
@@ -243,6 +342,7 @@ export function createAudioRuntime({
     startAt,
     duration,
     emphasis,
+    destination = null,
   ) {
     const context = getAudioContext();
     const oscillator = context.createOscillator();
@@ -282,8 +382,9 @@ export function createAudioRuntime({
     );
     overtoneGain.gain.exponentialRampToValueAtTime(0.0001, stop);
 
-    oscillator.connect(gain).connect(getOutputNode());
-    overtone.connect(overtoneGain).connect(getOutputNode());
+    const output = destination ?? getOutputNode();
+    oscillator.connect(gain).connect(output);
+    overtone.connect(overtoneGain).connect(output);
     trackSource(oscillator);
     trackSource(overtone);
     oscillator.start(start);
@@ -299,15 +400,28 @@ export function createAudioRuntime({
     duration = 0.48,
     emphasis = false,
     sound = melodySound,
+    destination = null,
   ) {
     if (sound === DEFAULT_MELODY_SOUND) {
-      return playSyntheticTone(midi, startAt, duration, emphasis);
+      return playSyntheticTone(
+        midi,
+        startAt,
+        duration,
+        emphasis,
+        destination,
+      );
     }
     const instrument = MELODY_SAMPLE_INSTRUMENTS[sound];
     const sampleMidi = melodySampleMidi(midi, sound);
     const buffer = melodySampleBuffers.get(`${sound}:${sampleMidi}`);
     if (!buffer) {
-      return playSyntheticTone(midi, startAt, duration, emphasis);
+      return playSyntheticTone(
+        midi,
+        startAt,
+        duration,
+        emphasis,
+        destination,
+      );
     }
 
     const context = getAudioContext();
@@ -316,7 +430,8 @@ export function createAudioRuntime({
     const playbackRate = 2 ** ((midi - sampleMidi) / 12);
     const start = context.currentTime + startAt;
     const sampleOffset = Math.min(
-      instrument.headSeconds,
+      melodySampleHeads.get(`${sound}:${sampleMidi}`) ??
+        instrument.headSeconds,
       Math.max(0, buffer.duration - 0.001),
     );
     const availableDuration =
@@ -376,7 +491,7 @@ export function createAudioRuntime({
       gain.gain.exponentialRampToValueAtTime(0.0001, stop);
     }
 
-    source.connect(gain).connect(getOutputNode());
+    source.connect(gain).connect(destination ?? getOutputNode());
     trackSource(source);
     source.start(start, sampleOffset);
     source.stop(stop + (sound === "piano" ? 0 : 0.02));
@@ -385,6 +500,23 @@ export function createAudioRuntime({
 
   function prepareInputAudio() {
     getOutputNode();
+    getRealtimeOutputNode();
+  }
+
+  function playImmediateTone(
+    midi,
+    duration = 0.36,
+    emphasis = false,
+    sound = melodySound,
+  ) {
+    return playTone(
+      midi,
+      0,
+      duration,
+      emphasis,
+      sound,
+      getRealtimeOutputNode(),
+    );
   }
 
   function trackInputTone(midi, sound, source, releaseSource) {
@@ -434,7 +566,7 @@ export function createAudioRuntime({
       volume,
       start + MIDI_INPUT_ATTACK_SECONDS,
     );
-    oscillator.connect(gain).connect(getOutputNode());
+    oscillator.connect(gain).connect(getRealtimeOutputNode());
     oscillator.start(start);
 
     return trackInputTone(
@@ -463,7 +595,8 @@ export function createAudioRuntime({
     const playbackRate = 2 ** ((midi - sampleMidi) / 12);
     const start = context.currentTime;
     const sampleOffset = Math.min(
-      instrument.headSeconds,
+      melodySampleHeads.get(`${sound}:${sampleMidi}`) ??
+        instrument.headSeconds,
       Math.max(0, buffer.duration - 0.001),
     );
     const volume = inputVolume(MELODY_GAIN, velocity);
@@ -475,7 +608,7 @@ export function createAudioRuntime({
       volume,
       start + MIDI_INPUT_ATTACK_SECONDS,
     );
-    source.connect(gain).connect(getOutputNode());
+    source.connect(gain).connect(getRealtimeOutputNode());
     source.start(start, sampleOffset);
 
     return trackInputTone(midi, sound, source, () => {
@@ -632,6 +765,7 @@ export function createAudioRuntime({
     preloadMelodySamples,
     playSyntheticTone,
     playTone,
+    playImmediateTone,
     prepareInputAudio,
     startInputTone,
     stopInputTone,

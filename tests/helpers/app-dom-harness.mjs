@@ -214,6 +214,16 @@ function createAudioHarness(clock) {
       };
     }
 
+    createWaveShaper() {
+      return {
+        connect(target) {
+          return target;
+        },
+        curve: null,
+        oversample: "none",
+      };
+    }
+
     createGain() {
       return {
         connect(target) {
