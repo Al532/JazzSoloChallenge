@@ -567,6 +567,7 @@ output {
 }
 
 .developer-sound-setting {
+  grid-column: 1 / -1;
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line);

@@ -44,6 +44,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         realSpeed: 100,
         realSpeedDefaultRevision: 1,
         developerMode: false,
+        melodySoundDefaultRevision: 1,
       });
       assert.deepEqual(app.serviceWorkerCalls, ["./sw.js"]);
       assert.equal(
@@ -112,6 +113,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         realSpeed: 75,
         realSpeedDefaultRevision: 1,
         developerMode: true,
+        melodySoundDefaultRevision: 1,
       });
     } finally {
       restarted.close();
@@ -552,16 +554,16 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
         app.element("#phrase-editor-counter").value,
         `${selectedIndex + 1}/${originalCount}`,
       );
-      const oscillatorCount = app.audio.sources.filter(
-        ({ kind }) => kind === "oscillator",
-      ).length;
+      const sourceCount = app.audio.sources.length;
       await app.click("#phrase-editor-play-selected");
-      const previewOscillators = app.audio.sources
-        .filter(({ kind }) => kind === "oscillator")
-        .slice(oscillatorCount);
+      const previewSources = app.audio.sources.slice(sourceCount);
       assert.equal(
-        previewOscillators.length,
-        (originalCount - selectedIndex) * 2,
+        previewSources.length,
+        originalCount - selectedIndex,
+      );
+      assert.equal(
+        previewSources.every(({ kind }) => kind === "buffer"),
+        true,
       );
       assert.equal(
         app.element("#phrase-editor-play-selected").getAttribute(
@@ -1105,7 +1107,7 @@ test("les parcours principaux exécutent réellement app.js dans le DOM", async 
       assert.ok(
         youtube.audio.sources
           .slice(sourceCountBeforePhrase)
-          .some(({ kind }) => kind === "oscillator"),
+          .some(({ kind }) => kind === "buffer"),
       );
 
       await youtube.click("#preview-recording-workshop");

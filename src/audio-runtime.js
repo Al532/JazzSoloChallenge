@@ -1,11 +1,4 @@
 export const MELODY_SAMPLE_INSTRUMENTS = Object.freeze({
-  clarinet: Object.freeze({
-    labelKey: "instrument.clarinet",
-    minMidi: 50,
-    maxMidi: 92,
-    headSeconds: 0.025,
-    fileExtension: "mp3",
-  }),
   piano: Object.freeze({
     labelKey: "instrument.piano",
     minMidi: 36,
@@ -16,7 +9,8 @@ export const MELODY_SAMPLE_INSTRUMENTS = Object.freeze({
   }),
 });
 
-export const DEFAULT_MELODY_SOUND = "synthetic";
+export const DEFAULT_MELODY_SOUND = "piano";
+export const SYNTHETIC_MELODY_SOUND = "synthetic";
 export const MASTER_GAIN = 2;
 export const MASTER_LIMITER_THRESHOLD_DB = -1;
 export const MELODY_GAIN = 1;
@@ -50,7 +44,7 @@ function clamp01(value) {
 }
 
 export function normalizeMelodySound(sound) {
-  return sound === DEFAULT_MELODY_SOUND ||
+  return sound === SYNTHETIC_MELODY_SOUND ||
     Object.hasOwn(MELODY_SAMPLE_INSTRUMENTS, sound)
     ? sound
     : DEFAULT_MELODY_SOUND;
@@ -402,7 +396,7 @@ export function createAudioRuntime({
     sound = melodySound,
     destination = null,
   ) {
-    if (sound === DEFAULT_MELODY_SOUND) {
+    if (sound === SYNTHETIC_MELODY_SOUND) {
       return playSyntheticTone(
         midi,
         startAt,
@@ -571,7 +565,7 @@ export function createAudioRuntime({
 
     return trackInputTone(
       midi,
-      DEFAULT_MELODY_SOUND,
+      SYNTHETIC_MELODY_SOUND,
       oscillator,
       () => {
         const releaseStart = context.currentTime;
@@ -641,7 +635,7 @@ export function createAudioRuntime({
   }
 
   function startInputTone(midi, velocity = 1) {
-    if (melodySound !== DEFAULT_MELODY_SOUND) {
+    if (melodySound !== SYNTHETIC_MELODY_SOUND) {
       const sampleTone = startSampleInputTone(
         midi,
         velocity,

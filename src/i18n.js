@@ -258,9 +258,7 @@ const messages = {
     "audio.listenOriginal": "Play original",
     "audio.listenCarefully": "Listen carefully…",
     "sound.synthetic": "Synthetic",
-    "sound.clarinet": "Clarinet",
     "sound.piano": "Piano",
-    "instrument.clarinet": "clarinet",
     "instrument.piano": "piano",
     "rating.prompt": "Rate 1, 2 or 3 stars — keys 1, 2 or 3.",
     "rating.adjustedPreview":
@@ -624,9 +622,7 @@ const messages = {
     "audio.listenOriginal": "Écouter l’original",
     "audio.listenCarefully": "Écoute bien…",
     "sound.synthetic": "Synthétique",
-    "sound.clarinet": "Clarinette",
     "sound.piano": "Piano",
-    "instrument.clarinet": "clarinette",
     "instrument.piano": "piano",
     "rating.prompt": "Attribue 1, 2 ou 3 étoiles — touches 1, 2 ou 3.",
     "rating.adjustedPreview":

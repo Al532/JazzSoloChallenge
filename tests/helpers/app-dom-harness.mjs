@@ -187,7 +187,9 @@ function createAudioHarness(clock) {
     }
 
     createBufferSource() {
-      return audioSource("buffer");
+      const source = audioSource("buffer");
+      source.playbackRate = audioParam(1);
+      return source;
     }
 
     createBiquadFilter() {

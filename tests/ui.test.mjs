@@ -142,11 +142,11 @@ test("le contrat HTML expose uniquement les outils développeur actuels", () => 
   assert.equal(soundSetting.hasAttribute("data-developer-only"), true);
   assert.equal(
     soundSetting.parentElement,
-    document.querySelector(".developer-access-panel"),
+    developerActions,
   );
   assert.deepEqual(
     [...elements.melodySound.options].map(({ value }) => value),
-    ["synthetic", "clarinet", "piano"],
+    ["synthetic", "piano"],
   );
   assert.doesNotMatch(
     styles,
@@ -338,10 +338,9 @@ test("l’ancienne télémétrie reste absente et les samples restent disponible
     assert.equal(document.querySelector(selector), null, selector);
   }
   assert.doesNotMatch(document.body.textContent, /\bscore\b|\bpoints\b/i);
-  assert.equal(DEFAULT_MELODY_SOUND, "synthetic");
+  assert.equal(DEFAULT_MELODY_SOUND, "piano");
 
   for (const [instrument, extension, expectedCount] of [
-    ["clarinet", "mp3", 43],
     ["piano", "ogg", 61],
   ]) {
     const directory = new URL(`../audio/${instrument}/`, import.meta.url);
@@ -550,9 +549,7 @@ test("les manifestes et le shell PWA restent synchronisés", () => {
   );
   assert.equal(
     [...shellAssets].some(
-      (asset) =>
-        asset.startsWith("./audio/clarinet/") ||
-        asset.startsWith("./audio/piano/"),
+      (asset) => asset.startsWith("./audio/piano/"),
     ),
     false,
   );

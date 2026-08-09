@@ -15,6 +15,7 @@ import {
   PIANO_RELEASE_TIME_CONSTANT_HIGH_SECONDS,
   PIANO_RELEASE_TIME_CONSTANT_LOW_SECONDS,
   SYNTHETIC_MELODY_GAIN,
+  SYNTHETIC_MELODY_SOUND,
   createAudioRuntime,
   detectSampleHeadSeconds,
   keyboardMidiNotes,
@@ -218,18 +219,8 @@ function makeRuntime({
   };
 }
 
-test("le runtime expose et valide les trois sons de mélodie", () => {
-  assert.deepEqual(Object.keys(MELODY_SAMPLE_INSTRUMENTS), [
-    "clarinet",
-    "piano",
-  ]);
-  assert.deepEqual(MELODY_SAMPLE_INSTRUMENTS.clarinet, {
-    labelKey: "instrument.clarinet",
-    minMidi: 50,
-    maxMidi: 92,
-    headSeconds: 0.025,
-    fileExtension: "mp3",
-  });
+test("le runtime expose et valide les sons de mélodie", () => {
+  assert.deepEqual(Object.keys(MELODY_SAMPLE_INSTRUMENTS), ["piano"]);
   assert.deepEqual(MELODY_SAMPLE_INSTRUMENTS.piano, {
     labelKey: "instrument.piano",
     minMidi: 36,
@@ -242,9 +233,14 @@ test("le runtime expose et valide les trois sons de mélodie", () => {
     keyboardMidiNotes({ startMidi: 60, endMidi: 63 }),
     [60, 61, 62, 63],
   );
+  assert.equal(DEFAULT_MELODY_SOUND, "piano");
+  assert.equal(SYNTHETIC_MELODY_SOUND, "synthetic");
   assert.equal(normalizeMelodySound("synthetic"), "synthetic");
-  assert.equal(normalizeMelodySound("clarinet"), "clarinet");
   assert.equal(normalizeMelodySound("piano"), "piano");
+  assert.equal(
+    normalizeMelodySound("removed-instrument"),
+    DEFAULT_MELODY_SOUND,
+  );
   assert.equal(normalizeMelodySound("unknown"), DEFAULT_MELODY_SOUND);
 });
 
@@ -299,7 +295,7 @@ test("le son synthétique conserve oscillateurs, enveloppes et fallback", () => 
   const context = new FakeAudioContext({ suspended: true });
   const { runtime } = makeRuntime({
     context,
-    initialMelodySound: "clarinet",
+    initialMelodySound: SYNTHETIC_MELODY_SOUND,
   });
 
   runtime.playTone(69, 0.5, 0.48, false);
@@ -391,40 +387,6 @@ test("la saisie MIDI démarre immédiatement et tient jusqu’au note-off", () =
   ]);
 });
 
-test("la saisie MIDI reprend la clarinette sélectionnée", async () => {
-  const context = new FakeAudioContext({ decodedDuration: 2 });
-  const { runtime } = makeRuntime({
-    context,
-    initialMelodySound: "clarinet",
-  });
-  await runtime.loadMelodySample(69);
-
-  const tone = runtime.startInputTone(69, 0.5);
-  const source = context.sources[0];
-  const inputGain = context.gains[0];
-  const volume = MELODY_GAIN * 0.625;
-
-  assert.equal(tone.sound, "clarinet");
-  assert.equal(context.oscillators.length, 0);
-  assert.ok(source.buffer);
-  assert.deepEqual(source.playbackRate.events, [["set", 1, 10]]);
-  assert.deepEqual(source.startCalls, [[10, 0.025]]);
-  assert.deepEqual(inputGain.gain.events, [
-    ["set", 0.0001, 10],
-    ["exponential", volume, 10 + MIDI_INPUT_ATTACK_SECONDS],
-  ]);
-
-  context.currentTime = 10.2;
-  runtime.stopInputTone(tone);
-  assert.deepEqual(inputGain.gain.events.slice(2), [
-    ["set", volume, 10.2],
-    ["exponential", 0.0001, 10.2 + MIDI_INPUT_RELEASE_SECONDS],
-  ]);
-  assert.deepEqual(source.stopCalls, [
-    [10.2 + MIDI_INPUT_RELEASE_SECONDS + 0.005],
-  ]);
-});
-
 test("la saisie MIDI reprend le piano et sa release adaptative", async () => {
   const context = new FakeAudioContext({ decodedDuration: 2 });
   const { runtime } = makeRuntime({
@@ -455,40 +417,41 @@ test("la saisie MIDI reprend le piano et sa release adaptative", async () => {
   assert.deepEqual(source.stopCalls, [[releaseEnd]]);
 });
 
-test("les samples de mélodie sont dédupliqués, mis en cache et transposés", async () => {
+test("les samples du piano sont dédupliqués, mis en cache et transposés", async () => {
   const fetched = [];
   const context = new FakeAudioContext({ decodedDuration: 1 });
   const { runtime } = makeRuntime({
     context,
-    initialMelodySound: "clarinet",
+    initialMelodySound: "piano",
     fetchImpl: async (url) => {
       fetched.push(url.toString());
       return okResponse();
     },
   });
 
-  assert.equal(runtime.melodySampleMidi(49), 61);
-  const firstLoad = runtime.loadMelodySample(49);
-  const duplicateLoad = runtime.loadMelodySample(61);
+  assert.equal(runtime.melodySampleMidi(24), 36);
+  const firstLoad = runtime.loadMelodySample(24);
+  const duplicateLoad = runtime.loadMelodySample(36);
   assert.strictEqual(firstLoad, duplicateLoad);
   await Promise.all([firstLoad, duplicateLoad]);
-  await runtime.preloadMelodySamples([49, 61]);
+  await runtime.preloadMelodySamples([24, 36]);
   assert.deepEqual(fetched, [
-    "https://example.test/app/audio/clarinet/61.mp3",
+    "https://example.test/app/audio/piano/36.ogg",
   ]);
   assert.equal(context.decodeCalls.length, 1);
 
-  runtime.playTone(49, 0.2, 0.48, true);
+  runtime.playTone(24, 0.2, 0.48, true);
   const source = context.sources[0];
   assert.equal(source.playbackRate.events[0][1], 0.5);
-  assert.deepEqual(source.startCalls, [[10.2, 0.025]]);
-  assert.deepEqual(source.stopCalls, [[10.7]]);
-  assert.deepEqual(context.gains[0].gain.events, [
+  assert.deepEqual(source.startCalls, [[10.2, 0]]);
+  assert.equal(source.stopCalls.length, 1);
+  assert.deepEqual(context.gains[0].gain.events.slice(0, 2), [
     ["set", 0.0001, 10.2],
     ["exponential", MELODY_EMPHASIS_GAIN, 10.206],
-    ["set", MELODY_EMPHASIS_GAIN, 10.645],
-    ["exponential", 0.0001, 10.68],
   ]);
+  assert.equal(context.gains[0].gain.events[2][0], "set");
+  assert.equal(context.gains[0].gain.events[3][0], "target");
+  assert.equal(context.gains[0].gain.events[4][0], "set");
 });
 
 test("le piano reprend la release exponentielle adaptative de SharpEleven", async () => {

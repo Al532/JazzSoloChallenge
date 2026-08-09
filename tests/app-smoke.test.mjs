@@ -59,6 +59,7 @@ test("l’application démarre réellement dans un DOM de navigateur", async () 
       realSpeed: 100,
       realSpeedDefaultRevision: 1,
       developerMode: false,
+      melodySoundDefaultRevision: 1,
     },
   );
   assert.equal(
@@ -70,14 +71,14 @@ test("l’application démarre réellement dans un DOM de navigateur", async () 
   );
   const melodySound = dom.window.document.querySelector("#melody-sound");
   assert.equal(soundSetting.hidden, true);
-  assert.equal(melodySound.value, "synthetic");
-  assert.equal(testApi.snapshot().effectiveMelodySound, "synthetic");
+  assert.equal(melodySound.value, "piano");
+  assert.equal(testApi.snapshot().effectiveMelodySound, "piano");
 
-  melodySound.value = "piano";
+  melodySound.value = "synthetic";
   melodySound.dispatchEvent(new dom.window.Event("change"));
-  assert.equal(melodySound.value, "synthetic");
-  assert.equal(testApi.snapshot().melodySound, "synthetic");
-  assert.equal(testApi.snapshot().effectiveMelodySound, "synthetic");
+  assert.equal(melodySound.value, "piano");
+  assert.equal(testApi.snapshot().melodySound, "piano");
+  assert.equal(testApi.snapshot().effectiveMelodySound, "piano");
 
   const developerMode = dom.window.document.querySelector("#developer-mode");
   developerMode.checked = true;
@@ -95,29 +96,13 @@ test("l’application démarre réellement dans un DOM de navigateur", async () 
       realSpeed: 100,
       realSpeedDefaultRevision: 1,
       developerMode: true,
+      melodySoundDefaultRevision: 1,
     },
   );
 
-  melodySound.value = "piano";
+  melodySound.value = "synthetic";
   melodySound.dispatchEvent(new dom.window.Event("change"));
-  assert.equal(testApi.snapshot().melodySound, "piano");
-  assert.equal(testApi.snapshot().effectiveMelodySound, "piano");
-  assert.deepEqual(
-    JSON.parse(
-      dom.window.localStorage.getItem("dictee-musicale.settings.v1"),
-    ),
-    {
-      realSpeed: 100,
-      realSpeedDefaultRevision: 1,
-      developerMode: true,
-      melodySound: "piano",
-    },
-  );
-
-  developerMode.checked = false;
-  developerMode.dispatchEvent(new dom.window.Event("change"));
-  assert.equal(soundSetting.hidden, true);
-  assert.equal(testApi.snapshot().melodySound, "piano");
+  assert.equal(testApi.snapshot().melodySound, "synthetic");
   assert.equal(testApi.snapshot().effectiveMelodySound, "synthetic");
   assert.deepEqual(
     JSON.parse(
@@ -126,8 +111,27 @@ test("l’application démarre réellement dans un DOM de navigateur", async () 
     {
       realSpeed: 100,
       realSpeedDefaultRevision: 1,
+      developerMode: true,
+      melodySoundDefaultRevision: 1,
+      melodySound: "synthetic",
+    },
+  );
+
+  developerMode.checked = false;
+  developerMode.dispatchEvent(new dom.window.Event("change"));
+  assert.equal(soundSetting.hidden, true);
+  assert.equal(testApi.snapshot().melodySound, "synthetic");
+  assert.equal(testApi.snapshot().effectiveMelodySound, "piano");
+  assert.deepEqual(
+    JSON.parse(
+      dom.window.localStorage.getItem("dictee-musicale.settings.v1"),
+    ),
+    {
+      realSpeed: 100,
+      realSpeedDefaultRevision: 1,
       developerMode: false,
-      melodySound: "piano",
+      melodySoundDefaultRevision: 1,
+      melodySound: "synthetic",
     },
   );
 

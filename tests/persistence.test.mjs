@@ -6,6 +6,7 @@ import {
   COMPLETED_PHRASES_KEY,
   DEFAULT_MELODY_SOUND,
   FAVORITES_KEY,
+  MELODY_SOUND_DEFAULT_REVISION,
   PHRASE_SETTINGS_KEY,
   RECORDING_VALIDATIONS_KEY,
   REAL_SPEED_DEFAULT_REVISION,
@@ -147,35 +148,37 @@ test("les réglages globaux migrent parkerSpeed et valident le son", () => {
   );
 });
 
-test("la sérialisation conserve le son choisi et omet le son implicite", () => {
+test("la sérialisation conserve le son choisi et omet le piano implicite", () => {
   assert.deepEqual(
     serializedGlobalSettings({
       parkerSpeed: 80,
       developerMode: true,
       transposeOriginal: false,
-      melodySound: "clarinet",
+      melodySound: "synthetic",
       selectedPerformers: ["Charlie Parker"],
     }),
     {
       realSpeed: 80,
       realSpeedDefaultRevision: REAL_SPEED_DEFAULT_REVISION,
       developerMode: true,
-      melodySound: "clarinet",
+      melodySoundDefaultRevision: MELODY_SOUND_DEFAULT_REVISION,
+      melodySound: "synthetic",
     },
   );
   assert.deepEqual(serializedGlobalSettings(), {
     realSpeed: 100,
     realSpeedDefaultRevision: REAL_SPEED_DEFAULT_REVISION,
     developerMode: false,
+    melodySoundDefaultRevision: MELODY_SOUND_DEFAULT_REVISION,
   });
 });
 
-test("le chargement migratoire applique une fois la vitesse par défaut", () => {
+test("le chargement migratoire applique une fois les nouveaux défauts", () => {
   const storage = memoryStorage({
     [SETTINGS_KEY]: JSON.stringify({
       parkerSpeed: 70,
       randomLength: 16,
-      melodySound: "piano",
+      melodySound: "synthetic",
     }),
   });
 
@@ -188,7 +191,7 @@ test("le chargement migratoire applique une fois la vitesse par défaut", () => 
     realSpeed: 100,
     realSpeedDefaultRevision: REAL_SPEED_DEFAULT_REVISION,
     developerMode: false,
-    melodySound: "piano",
+    melodySoundDefaultRevision: MELODY_SOUND_DEFAULT_REVISION,
   });
 
   assert.equal(
@@ -196,7 +199,7 @@ test("le chargement migratoire applique une fois la vitesse par défaut", () => 
       {
         realSpeed: 30,
         developerMode: true,
-        melodySound: "clarinet",
+        melodySound: "synthetic",
       },
       storage,
     ),
@@ -205,12 +208,12 @@ test("le chargement migratoire applique une fois la vitesse par défaut", () => 
   assert.deepEqual(loadGlobalSettings(storage), {
     realSpeed: 30,
     developerMode: true,
-    melodySound: "clarinet",
+    melodySound: "synthetic",
   });
   assert.deepEqual(loadAndMigrateGlobalSettings(storage), {
     realSpeed: 30,
     developerMode: true,
-    melodySound: "clarinet",
+    melodySound: "synthetic",
   });
 });
 
